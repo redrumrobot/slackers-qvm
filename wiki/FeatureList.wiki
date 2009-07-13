@@ -2,23 +2,23 @@
 
 ===Latiku7QVM Features (Currently at R174)===
 
-  * *Ban/Adjustban/showbans/Unban*
+  * *Ban Adjustban showbans Unban*
   * *Admintest*
-  * *Allowbuild/Denybuild*
+  * *Allowbuild Denybuild*
   * *Allready*
-  * *Buidlog/revert*
-  * *PassVote/CancelVote*
+  * *Buidlog revert*
+  * *PassVote CancelVote*
   * *CP*
   * *Designate*
-  * *Map/DevMap/nextmap/Layoutsave*
+  * *Map DevMap nextmap Layoutsave*
   * *Help*
   * *Info*
   * *Kick*
   * *L0/L1*
-  * *ListAdmins/ListPlayers/Namelog*
-  * *ListLayouts/Listmaps/Maplog/Rotation*
-  * *Lock/Unlock*
-  * *Mute/UnMute*
+  * *ListAdmins ListPlayers Namelog*
+  * *ListLayouts Listmaps Maplog Rotation*
+  * *Lock Unlock*
+  * *Mute UnMute*
   * *Putteam*
   * *ReadConfig*
   * *Spec999*
@@ -45,3 +45,9 @@
 
   * *Slap* Author: Unknown
     slaps a player either doing damage of proving knockback
+
+  * *ALLOWVOTE* Author: Slacker
+    Flag that grants voting ability
+
+  * *SPECIAL and SPECIALNAMES* Author: critux
+    Allows black names and can give other advantages to a player
