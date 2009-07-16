@@ -1,3 +1,4 @@
+#labels Featured
 ==FLAGS==
   * adminlog      - adminlog
   * admintest     - admintest
