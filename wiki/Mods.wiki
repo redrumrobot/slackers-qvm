@@ -1,0 +1,20 @@
+#labels Featured
+==Mods and required patches==
+
+Ambush
+ * Version: _3.0_
+ * Author: _rotacak_
+ * Link: [http://tremulous.net/forum/index.php?topic=8864.0 Ambush mod]
+ * install instructions:
+  # use [http://code.google.com/p/slackers-qvm/source/browse/branches/patches/01-AnimeBot-0.1-Slackersqvm.patch anime's trembot] or [http://code.google.com/p/slackers-qvm/source/browse/branches/patches/01-PBot-2.8-Slackersqvm.patch sex's pbot] patch
+  # apply [http://code.google.com/p/slackers-qvm/source/browse/branches/patches/02-Ambush-3.0-Slackersqvm.patch Ambush Mod patch]
+
+Invasion
+ * Version: _2.1_
+ * Author: _BigGamer95_
+ * Link: [http://projects.tremulous.c4.fr/projects/invasion Invasion Mod]
+ * install instructions:
+  # use [http://code.google.com/p/slackers-qvm/source/browse/branches/patches/01-AnimeBot-0.1-Slackersqvm.patch anime's trembot] or [http://code.google.com/p/slackers-qvm/source/browse/branches/patches/01-PBot-2.8-Slackersqvm.patch sex's pbot] patch
+  # apply [http://code.google.com/p/slackers-qvm/source/browse/branches/patches/02-Invasion-2.1-Slackersqvm.patch Invasion Mod patch]
+
+----
