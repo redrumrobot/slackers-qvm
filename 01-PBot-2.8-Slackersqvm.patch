@@ -1,0 +1,2953 @@
+Index: src/game/g_local.h
+===================================================================
+--- src/game/g_local.h	(revision 83)
++++ src/game/g_local.h	(working copy)
+@@ -43,6 +43,10 @@
+ #define INTERMISSION_DELAY_TIME 1000
+ #define SP_INTERMISSION_DELAY_TIME 5000
+ 
++#define MAX_PATHS       200 //try not to make it over 1000 or there will be problems.
++#define MAX_PATH_NODES  5   //do not change
++#define MAX_HIST        200 //value same as MAX_PATHS
++
+ // gentity->flags
+ #define FL_GODMODE        0x00000010
+ #define FL_NOTARGET       0x00000020
+@@ -53,6 +57,11 @@
+ #define FL_NO_HUMANS      0x00004000  // spawn point just for bots
+ #define FL_FORCE_GESTURE  0x00008000  // spawn point just for bots
+ 
++#define BOT_JUMP          1
++#define BOT_WALLCLIMB     2
++#define BOT_KNEEL         3
++#define BOT_POUNCE        4
++
+ typedef struct
+ {
+   qboolean	isNB;
+@@ -87,6 +96,42 @@
+ 
+ #define SP_PODIUM_MODEL   "models/mapobjects/podium/podium4.md3"
+ 
++typedef enum
++{
++  BOT_REGULAR = 1,
++  BOT_IDLE,
++  BOT_ATTACK,
++  BOT_STAND_GROUND,
++  BOT_DEFENSIVE,
++  BOT_FOLLOW_FRIEND_PROTECT,
++  BOT_FOLLOW_FRIEND_ATTACK,
++  BOT_FOLLOW_FRIEND_IDLE,
++  BOT_TEAM_KILLER
++} botCommand_t;
++
++typedef struct
++{
++  vec3_t  coord;
++  int     nextid[5];
++  int     random;
++  int     timeout;
++  int     action;
++} path;
++
++typedef struct
++{
++  int     nextid[5];
++} oldpath;
++
++
++typedef enum
++{
++  TARGETPATH,
++  FINDNEXTPATH,
++  FINDNEWPATH,
++  LOST
++} botstate;
++
+ //============================================================================
+ 
+ struct gentity_s
+@@ -200,9 +245,39 @@
+ 
+   int               noise_index;
+ 
++  //for targeting following
++  botCommand_t      botCommand;
++  gentity_t         *botEnemy;
++  gentity_t         *botFriend;
++  int               enemytime;
++  int               botFriendLastSeen;
++  int               botEnemyLastSeen;
++  int               botSkillLevel;
++  int               botTeam;
++  qboolean          nextNode;
++  qboolean          pathChosen;
++  int               targetPath;
++  int               targetNode;
++  int               timeFoundPath;
++  oldpath           OldPaths[MAX_PATHS];
++  int               SkipPaths[MAX_PATHS];
++  int               numOldPaths;
++  botstate          state;
++  int               buytime;
++  int               evolvetime;
++  qboolean          noammo;
++  qboolean          isblocked;
++  vec3_t            OldPos[20];
++  int               pathid;
++  int               movepathid;
++  int               discpathid;
++  int               lastpathid;
++
+   // timing variables
+   float             wait;
+   float             random;
++  int               jumptime;
++  int               searchtime;
+ 
+   pTeam_t           stageTeam;
+   stage_t           stageStage;
+@@ -521,6 +596,7 @@
+   int                 time100;
+   int                 time1000;
+   int                 time10000;
++  int                 bottime;
+ 
+   char                *areabits;
+ 
+@@ -805,6 +881,9 @@
+   int               lastMsgTime;
+   int               mapRotationVoteTime;
+   
++  path              paths[MAX_PATHS];
++  int               numPaths;
++  
+   statsCounters_level alienStatsCounters;
+   statsCounters_level humanStatsCounters;
+   
+@@ -842,7 +921,24 @@
+ void      G_SpawnEntitiesFromString( void );
+ char      *G_NewString( const char *string );
+ 
++// g_bot.c
+ //
++void G_BotAdd( char *name, int team, int skill, int ignore );
++void G_BotDel( int clientNum );
++void G_BotReload( gentity_t *ent, int clientNum );
++void G_BotCmd( gentity_t *master, int clientNum, char *command );
++void G_BotThink( gentity_t *self );
++void G_FrameAim( gentity_t *self );
++void G_FastThink( gentity_t *self );
++void G_BotSpectatorThink( gentity_t *self );
++// todo: are these suppose to be out here?! Why not?
++qboolean botAimAtTarget( gentity_t *self, gentity_t *target );
++int botFindClosestEnemy( gentity_t *self, qboolean includeTeam );
++qboolean botTargetInRange( gentity_t *self, gentity_t *target );
++int botGetDistanceBetweenPlayer( gentity_t *self, gentity_t *player );
++qboolean botShootIfTargetInRange( gentity_t *self, gentity_t *target );
++
++//
+ // g_cmds.c
+ //
+ void      Cmd_Score_f( gentity_t *ent );
+@@ -1475,6 +1571,30 @@
+ extern  vmCvar_t  mod_jetpackConsume;
+ extern  vmCvar_t  mod_jetpackRegen;
+ 
++extern  vmCvar_t  g_pathediting;
++extern  vmCvar_t  g_bot;
++extern  vmCvar_t  g_bot_attackbuildables;
++extern  vmCvar_t  g_human_range;
++extern  vmCvar_t  g_human_strafe;
++extern  vmCvar_t  g_level0_range;
++extern  vmCvar_t  g_level1_range;
++extern  vmCvar_t  g_level1UPG_range;
++extern  vmCvar_t  g_level2_range;
++extern  vmCvar_t  g_level2UPG_range;
++extern  vmCvar_t  g_level3_range;
++extern  vmCvar_t  g_level3UPG_range;
++extern  vmCvar_t  g_level4_range;
++extern  vmCvar_t  g_bot_evolve;
++extern  vmCvar_t  g_bot_mgun;
++extern  vmCvar_t  g_bot_shotgun;
++extern  vmCvar_t  g_bot_psaw;
++extern  vmCvar_t  g_bot_lasgun;
++extern  vmCvar_t  g_bot_mdriver;
++extern  vmCvar_t  g_bot_chaingun;
++extern  vmCvar_t  g_bot_prifle;
++extern  vmCvar_t  g_bot_flamer;
++extern  vmCvar_t  g_bot_lcannon;
++
+ extern  vmCvar_t  g_adminExpireTime;
+ 
+ extern  vmCvar_t  g_autoGhost;
+@@ -1485,6 +1605,7 @@
+ extern  vmCvar_t  g_aimbotAdvertBanTime;
+ extern  vmCvar_t  g_aimbotAdvertBanReason;
+ 
++
+ void      trap_Printf( const char *fmt );
+ void      trap_Error( const char *fmt );
+ int       trap_Milliseconds( void );
+Index: src/game/g_active.c
+===================================================================
+--- src/game/g_active.c	(revision 83)
++++ src/game/g_active.c	(working copy)
+@@ -388,6 +388,11 @@
+   client->oldbuttons = client->buttons;
+   client->buttons = ucmd->buttons;
+ 
++  if( ent->r.svFlags & SVF_BOT ) {
++    G_BotSpectatorThink( ent );
++    return;
++  }
++
+    attack1 = ( ( client->buttons & BUTTON_ATTACK ) &&
+                !( client->oldbuttons & BUTTON_ATTACK ) );
+    attack3 = ( ( client->buttons & BUTTON_USE_HOLDABLE ) &&
+@@ -581,6 +586,7 @@
+   client->time100 += msec;
+   client->time1000 += msec;
+   client->time10000 += msec;
++  client->bottime += msec;
+ 
+   if( aForward == 0 && aRight == 0 )
+     stopped = qtrue;
+@@ -597,6 +603,21 @@
+ 
+   while ( client->time100 >= 100 )
+   {
++    if( ent->r.svFlags & SVF_BOT )
++    {
++      if( g_bot.integer > 0 )
++      {
++        G_FastThink( ent );
++      }
++      else
++      {
++        ent->client->pers.cmd.buttons = 0;
++        ent->client->pers.cmd.forwardmove = 0;
++        ent->client->pers.cmd.upmove = 0;
++        ent->client->pers.cmd.rightmove = 0;
++      }
++    }
++
+     client->time100 -= 100;
+ 
+     //if not trying to run then not trying to sprint
+@@ -802,7 +823,24 @@
+       }
+     }
+   }
+-
++  while ( client->bottime >= 200 )
++  {
++    if( ent->r.svFlags & SVF_BOT )
++    {
++      if( g_bot.integer > 0 )
++      {
++        G_BotThink( ent );
++      }
++      else
++      {
++        ent->client->pers.cmd.buttons = 0;
++        ent->client->pers.cmd.forwardmove = 0;
++        ent->client->pers.cmd.upmove = 0;
++        ent->client->pers.cmd.rightmove = 0;
++      }
++    }
++    client->bottime -= 200;
++  }
+   while( client->time1000 >= 1000 )
+   {
+     client->time1000 -= 1000;
+@@ -1517,6 +1555,21 @@
+   if( !ClientInactivityTimer( client ) )
+     return;
+ 
++  if( ent->r.svFlags & SVF_BOT )
++  {
++    if( g_bot.integer > 0 )
++    {
++      G_FrameAim( ent );
++    }
++    else
++    {
++      ent->client->pers.cmd.buttons = 0;
++      ent->client->pers.cmd.forwardmove = 0;
++      ent->client->pers.cmd.upmove = 0;
++      ent->client->pers.cmd.rightmove = 0;
++    }
++  }
++
+   // calculate where ent is currently seeing all the other active clients 
+   G_UnlaggedCalc( ent->client->unlaggedTime, ent );
+ 
+@@ -1893,14 +1946,14 @@
+   // phone jack if they don't get any for a while
+   ent->client->lastCmdTime = level.time;
+ 
+-  if( !g_synchronousClients.integer )
++  if( !( ent->r.svFlags & SVF_BOT ) && !g_synchronousClients.integer )
+     ClientThink_real( ent );
+ }
+ 
+ 
+ void G_RunClient( gentity_t *ent )
+ {
+-  if( !g_synchronousClients.integer )
++  if( !( ent->r.svFlags & SVF_BOT ) && !g_synchronousClients.integer )
+     return;
+ 
+   ent->client->pers.cmd.serverTime = level.time;
+Index: src/game/g_public.h
+===================================================================
+--- src/game/g_public.h	(revision 83)
++++ src/game/g_public.h	(working copy)
+@@ -35,6 +35,8 @@
+ // https://zerowing.idsoftware.com/bugzilla/show_bug.cgi?id=551
+ #define SVF_CLIENTMASK 0x00000002
+ 
++
++#define SVF_BOT                 0x00000008  // set if the entity is a bot
+ #define SVF_BROADCAST           0x00000020  // send to all connected clients
+ #define SVF_PORTAL              0x00000040  // merge a second pvs at origin2 into snapshots
+ #define SVF_USE_CURRENT_ORIGIN  0x00000080  // entity->r.currentOrigin instead of entity->s.origin
+Index: src/game/g_bot.c
+===================================================================
+--- src/game/g_bot.c	(revision 0)
++++ src/game/g_bot.c	(revision 0)
+@@ -0,0 +1,1677 @@
++/*
++===========================================================================
++Copyright (C) 2007 Amine Haddad
++
++This file is part of Tremulous.
++
++The original works of vcxzet (lamebot3) were used a guide to create TremBot.
++
++Tremulous is free software; you can redistribute it
++and/or modify it under the terms of the GNU General Public License as
++published by the Free Software Foundation; either version 2 of the License,
++or (at your option) any later version.
++
++Tremulous is distributed in the hope that it will be
++useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
++MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++GNU General Public License for more details.
++
++You should have received a copy of the GNU General Public License
++along with Tremulous; if not, write to the Free Software
++Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
++===========================================================================
++*/
++
++/* Current version: v0.01 */
++
++#include "g_local.h"
++
++#ifndef RAND_MAX
++#define RAND_MAX 32768
++#endif
++void G_BotReload( gentity_t *ent, int clientNum )
++{
++  ClientDisconnect( clientNum );
++  G_BotAdd( ent->client->pers.netname, ent->client->pers.teamSelection, ent->botSkillLevel, clientNum );
++  trap_SendServerCommand( -1, "print \"Interfering bot reloaded\n\"" );
++}
++
++void G_DeleteBots( void )
++{
++  int i;
++  gentity_t *bot;
++  bot = &g_entities[ 0 ];
++  for( i = 0; i < level.maxclients; i++, bot++ )
++  {
++    if(bot->r.svFlags & SVF_BOT) 
++    {ClientDisconnect(bot->client->ps.clientNum);}
++  }
++}
++
++void G_BotAdd( char *name, int team, int skill, int ignore ) {
++  int i,i2;
++  int clientNum;
++  char userinfo[MAX_INFO_STRING];
++  int reservedSlots = 0;
++  gentity_t *bot;
++
++  reservedSlots = trap_Cvar_VariableIntegerValue( "sv_privateclients" );
++
++  // find what clientNum to use for bot
++  clientNum = -1;
++  for( i = 0; i < reservedSlots; i++ ) {
++    if( i == ignore )
++    {continue;}
++    if( !g_entities[i].inuse ) {
++      clientNum = i;
++      break;
++    }
++  }
++  if(clientNum == 0)
++  {
++    trap_Printf("Warning: Bots will be reloaded if they interfere with client connections\n");
++  }
++  if(clientNum < 0) {
++    trap_Printf("no more slots for bot\n");
++    return;
++  }
++
++  bot = &g_entities[ clientNum ];
++  bot->inuse = qtrue;
++
++  //default bot data
++  bot->botCommand = BOT_REGULAR;
++  bot->botFriend = NULL;
++  bot->botEnemy = NULL;
++  bot->botFriendLastSeen = 0;
++  bot->botEnemyLastSeen = 0;
++  if(skill > 4){skill = 4;}
++  if(skill < 0){skill = 0;}
++  bot->botSkillLevel = skill;
++  bot->botTeam = team;
++  bot->pathChosen = qfalse;
++  bot->nextNode = qfalse;
++  bot->numOldPaths = 0;
++  bot->state = FINDNEWPATH;
++  bot->blocked = qfalse;
++
++  for(i2 = 0;i2 < MAX_PATHS;i2++)
++  {
++    bot->OldPaths[i2].nextid[0] = -1;
++    bot->OldPaths[i2].nextid[1] = -1;
++    bot->OldPaths[i2].nextid[2] = -1;
++    bot->OldPaths[i2].nextid[3] = -1;
++    bot->OldPaths[i2].nextid[4] = -1;
++    bot->SkipPaths[i2] = -1;
++  }
++  // register user information
++  userinfo[0] = '\0';
++  Info_SetValueForKey( userinfo, "name", name );
++  Info_SetValueForKey( userinfo, "rate", "25000" );
++  Info_SetValueForKey( userinfo, "snaps", "20" );
++  Info_SetValueForKey( userinfo, "ip", "1.2.3.4" );
++  if( *g_password.string && Q_stricmp( g_password.string, "none" ) )
++    Info_SetValueForKey( userinfo, "password", g_password.string );
++
++  trap_SetUserinfo( clientNum, userinfo );
++
++  // have it connect to the game as a normal client
++  if(ClientConnect(clientNum, qtrue) != NULL ) {
++    // won't let us join
++    return;
++  }
++  bot->r.svFlags |= SVF_BOT;
++  ClientBegin( clientNum );
++  G_ChangeTeam( bot, team );
++}
++
++void G_BotDel( int clientNum ) {
++  gentity_t *bot;
++
++  bot = &g_entities[clientNum];
++  if( !( bot->r.svFlags & SVF_BOT ) ) {
++    trap_Printf( va("'^7%s^7' is not a bot\n", bot->client->pers.netname) );
++    return;
++  }
++  bot->inuse = qfalse;
++  ClientDisconnect(clientNum);
++}
++
++void G_BotCmd( gentity_t *master, int clientNum, char *command ) {
++  gentity_t *bot;
++
++  bot = &g_entities[clientNum];
++  if( !( bot->r.svFlags & SVF_BOT ) ) {
++    return;
++  }
++
++  bot->botFriend = NULL;
++  bot->botEnemy = NULL;
++  bot->botFriendLastSeen = 0;
++  bot->botEnemyLastSeen = 0;
++
++  if( !Q_stricmp( command, "regular" ) ) {
++    bot->botCommand = BOT_REGULAR;
++    //trap_SendServerCommand(-1, "print \"regular mode\n\"");
++  } else if( !Q_stricmp( command, "idle" ) ) {
++    bot->botCommand = BOT_IDLE;
++    //trap_SendServerCommand(-1, "print \"idle mode\n\"");
++  } else if( !Q_stricmp( command, "attack" ) ) {
++    bot->botCommand = BOT_ATTACK;
++    //trap_SendServerCommand(-1, "print \"attack mode\n\"");
++  } else if( !Q_stricmp( command, "standground" ) ) {
++    bot->botCommand = BOT_STAND_GROUND;
++    //trap_SendServerCommand(-1, "print \"stand ground mode\n\"");
++  } else if( !Q_stricmp( command, "defensive" ) ) {
++    bot->botCommand = BOT_DEFENSIVE;
++    //trap_SendServerCommand(-1, "print \"defensive mode\n\"");
++  } else if( !Q_stricmp( command, "followprotect" ) ) {
++    bot->botCommand = BOT_FOLLOW_FRIEND_PROTECT;
++    bot->botFriend = master;
++    //trap_SendServerCommand(-1, "print \"follow-protect mode\n\"");
++  } else if( !Q_stricmp( command, "followattack" ) ) {
++    bot->botCommand = BOT_FOLLOW_FRIEND_ATTACK;
++    bot->botFriend = master;
++    //trap_SendServerCommand(-1, "print \"follow-attack mode\n\"");
++  } else if( !Q_stricmp( command, "followidle" ) ) {
++    bot->botCommand = BOT_FOLLOW_FRIEND_IDLE;
++    bot->botFriend = master;
++    //trap_SendServerCommand(-1, "print \"follow-idle mode\n\"");
++  } else if( !Q_stricmp( command, "teamkill" ) ) {
++    bot->botCommand = BOT_TEAM_KILLER;
++    //trap_SendServerCommand(-1, "print \"team kill mode\n\"");
++  } else {
++    bot->botCommand = BOT_REGULAR;
++    //trap_SendServerCommand(-1, "print \"regular (unknown) mode\n\"");
++  }
++
++  return;
++}
++
++int distanceToTargetNode( gentity_t *self )
++{
++  int distance,Ax,Ay,Az,Bx,By,Bz = 0;
++  Ax = level.paths[self->targetPath].coord[0];
++  Ay = level.paths[self->targetPath].coord[1];
++  Az = level.paths[self->targetPath].coord[2];
++  Bx = self->s.pos.trBase[0];
++  By = self->s.pos.trBase[1];
++  Bz = self->s.pos.trBase[2];
++  distance = sqrt((Ax - Bx)*(Ax - Bx) + (Ay - By)*(Ay - By) + (Az - Bz)*(Az - Bz));
++  return distance;
++}
++
++qboolean botAimAtPath( gentity_t *self )
++{
++  vec3_t dirToTarget, angleToTarget;
++  vec3_t top = { 0, 0, 0};
++  int vh = 0;
++  BG_FindViewheightForClass(  self->client->ps.stats[ STAT_PCLASS ], &vh, NULL );
++  top[2]=vh;
++  VectorAdd( self->s.pos.trBase, top, top);
++  VectorSubtract( level.paths[self->targetPath].coord, top, dirToTarget );
++  VectorNormalize( dirToTarget );
++  vectoangles( dirToTarget, angleToTarget );
++  self->client->ps.delta_angles[ 0 ] = ANGLE2SHORT( angleToTarget[ 0 ] );
++  self->client->ps.delta_angles[ 1 ] = ANGLE2SHORT( angleToTarget[ 1 ] );
++  self->client->ps.delta_angles[ 2 ] = ANGLE2SHORT( angleToTarget[ 2 ] );
++  return qtrue;
++}
++
++void G_FrameAim( gentity_t *self )
++{
++  if( !( self->r.svFlags & SVF_BOT ) )
++  {
++    return;
++  }
++  if(self->botEnemy && self->botEnemy->health <= 0)
++    self->botEnemy = NULL;
++  else
++  {
++    if(botTargetInRange( self, self->botEnemy ) == qfalse)
++    {
++      self->botEnemy = NULL;
++    }
++  }
++  if(self->botFriend && self->botFriend->health <= 0)
++    self->botFriend = NULL;
++  else
++  {
++    if(botTargetInRange( self, self->botFriend ) == qfalse)
++    {
++      self->botFriend = NULL;
++    }
++  }
++  if(self->botFriend->health <= 0)
++    self->botFriend = NULL;
++  if(!self->botEnemy && !self->botFriend && self->state == TARGETPATH)
++  {
++    botAimAtPath(self);
++  }
++  else if(self->botEnemy)
++  {
++    botAimAtTarget(self, self->botEnemy);
++  }
++  else if(self->botFriend)
++  {
++    botAimAtTarget(self, self->botFriend);
++  }
++}
++
++void G_FastThink( gentity_t *self )
++{
++  int forwardMove = 127;
++  if( !( self->r.svFlags & SVF_BOT ) )
++  {
++    return;
++  }
++  if(self->botEnemy || self->botFriend)
++  {
++    self->enemytime = level.time;
++  }
++  if(!self->botEnemy && !self->botFriend && self->state == TARGETPATH)
++  {
++    self->client->pers.cmd.buttons = 0;
++    self->client->pers.cmd.upmove = 0;
++    self->client->pers.cmd.rightmove = 0;
++    if((self->isblocked == qtrue || 
++        VectorLength( self->client->ps.velocity ) < 50.0f) && level.time - self->enemytime > 1000)
++    {
++      self->client->pers.cmd.buttons |= BUTTON_GESTURE;
++      self->client->pers.cmd.rightmove = -100;
++      if(self->client->time1000 >= 500)
++      {
++        self->client->pers.cmd.rightmove = 100;
++      }
++      if(level.time - self->jumptime > 3000 &&
++         (( self->client->ps.stats[ STAT_PTEAM ] == PTE_HUMANS && self->client->ps.stats[ STAT_STAMINA ] > 100 ) ||
++         self->client->ps.stats[ STAT_PTEAM ] == PTE_ALIENS))
++      {
++        self->client->pers.cmd.upmove = 20;
++        if(level.time - self->jumptime > 4000)
++          self->jumptime = level.time;
++      }
++    }
++    self->client->pers.cmd.forwardmove = forwardMove;
++    if(self->lastpathid >= 0)
++    {
++      switch(level.paths[self->lastpathid].action)
++      {
++        case BOT_JUMP:	if(level.time - self->jumptime > 3000)
++        {
++          self->client->pers.cmd.upmove = 20;
++          if(level.time - self->jumptime > 4000)
++            self->jumptime = level.time;
++        }
++        break;
++        case BOT_WALLCLIMB: if( BG_ClassHasAbility( self->client->ps.stats[ STAT_PCLASS ], SCA_WALLCLIMBER ) ) {
++          self->client->pers.cmd.upmove = -1;
++        }
++        break;
++        case BOT_KNEEL: if(self->client->ps.stats[ STAT_PTEAM ] == PTE_HUMANS)
++        {
++          self->client->pers.cmd.upmove = -1;
++        }
++        break;
++        case BOT_POUNCE:if(self->client->pers.classSelection == PCL_ALIEN_LEVEL3 && 
++            self->client->ps.stats[ STAT_MISC ] < LEVEL3_POUNCE_SPEED)
++                self->client->pers.cmd.buttons |= BUTTON_ATTACK2;
++            else if(self->client->pers.classSelection == PCL_ALIEN_LEVEL3_UPG && 
++                    self->client->ps.stats[ STAT_MISC ] < LEVEL3_POUNCE_UPG_SPEED)
++              self->client->pers.cmd.buttons |= BUTTON_ATTACK2;
++            break;
++            default: break;
++      }
++      if(level.time - self->timeFoundPath > level.paths[self->lastpathid].timeout)
++      {
++        self->state = FINDNEWPATH;
++        self->timeFoundPath = level.time;
++        self->SkipPaths[self->targetPath] = 1;
++      }
++    }
++    else if( level.time - self->timeFoundPath > 10000 )
++    {
++      self->state = FINDNEWPATH;
++      self->timeFoundPath = level.time;
++      if(self->targetPath > -1)
++        self->SkipPaths[self->targetPath] = 1;
++    }
++    if(distanceToTargetNode(self) < 70)
++    {
++      self->state = FINDNEXTPATH;
++      self->timeFoundPath = level.time;
++    }
++    if(self->client->ps.stats[ STAT_PTEAM ] == PTE_HUMANS && 
++       self->client->ps.stats[ STAT_STAMINA ] < MAX_STAMINA)
++    {
++      self->client->pers.cmd.upmove = -1;
++      self->client->pers.cmd.buttons = 0;
++      self->client->pers.cmd.rightmove = 0;
++      self->client->pers.cmd.forwardmove = 0;
++      self->enemytime = level.time;
++      self->timeFoundPath += 100;
++    }
++  }
++        //else if(!self->botEnemy && !self->botFriend && self->state == LOST)
++        //{
++                //Run around wild?
++        //}
++}
++
++void findnewpath( gentity_t *self )
++{
++  trace_t trace;
++  int i,distance,Ax,Ay,Az,Bx,By,Bz = 0;
++  int closestpath = 0;
++  int closestpathdistance = 2000;
++  qboolean pathfound = qfalse;
++  for(i = 0; i < level.numPaths; i++) //find a nearby path that wasn't used before
++  {
++    trap_Trace( &trace, self->s.pos.trBase, NULL, NULL, level.paths[i].coord, self->s.number, MASK_SHOT );
++    if( trace.fraction < 1.0 )
++    {continue;}
++    Ax = level.paths[i].coord[0];
++    Ay = level.paths[i].coord[1];
++    Az = level.paths[i].coord[2];
++    Bx = self->s.pos.trBase[0];
++    By = self->s.pos.trBase[1];
++    Bz = self->s.pos.trBase[2];
++
++                //for(i2 = 0;i2 < 5;i2++)
++                //{
++                        //if(self->OldPaths[i].nextid[i2] == level.paths[i].nextid[i2] || self->SkipPaths[i] > 0)
++                        //{
++                                //oldpath = qtrue;
++                        //}
++                        //else
++                        //{
++                                //oldpath = qfalse;
++                                //i2 = 5;
++                        //}
++                //}
++                //if(oldpath == qtrue){oldpath = qfalse; continue;}
++    if(self->SkipPaths[i] > 0){continue;}
++    distance = sqrt((Ax - Bx)*(Ax - Bx) + (Ay - By)*(Ay - By) + (Az - Bz)*(Az - Bz));
++    if(distance < 5000)
++    {
++      if(closestpathdistance > distance)
++      {
++        closestpath = i;
++        closestpathdistance = distance;
++        pathfound = qtrue;
++      }
++    }
++  }
++  if(pathfound == qtrue)
++  {
++    self->targetPath = closestpath;
++    self->timeFoundPath = level.time;
++    self->state = TARGETPATH;
++    self->isblocked = qfalse;
++  }
++  else
++  {
++    self->state = LOST;
++    self->client->pers.cmd.forwardmove = 0;
++    self->client->pers.cmd.upmove = -1;
++    self->client->pers.cmd.rightmove = 0;
++    self->client->pers.cmd.buttons = 0;
++    self->client->pers.cmd.buttons |= BUTTON_GESTURE;
++    for(i = 0;i < level.numPaths; i++)
++    {
++      self->OldPaths[i].nextid[0] = -1;
++      self->OldPaths[i].nextid[1] = -1;
++      self->OldPaths[i].nextid[2] = -1;
++      self->OldPaths[i].nextid[3] = -1;
++      self->OldPaths[i].nextid[4] = -1;
++      self->SkipPaths[i] = -1;
++    }
++  }
++  return;
++}
++
++void findnextpath( gentity_t *self )
++{
++  int randnum = 0;
++  int i,nextpath = 0;
++  int possiblenextpath = 0;
++  int possiblepaths[5];
++  qboolean oldpath = qfalse;
++  int lasttarget = self->targetPath;
++  possiblepaths[0] = possiblepaths[1] = possiblepaths[2] = possiblepaths[3] = possiblepaths[4] = 0;
++  self->lastpathid = self->targetPath;
++  for(i = 0;i < MAX_PATHS;i++)
++  {
++    self->SkipPaths[i] = -1;
++  }
++  for(i = 0; i < 5; i++)
++  {
++    if(level.paths[self->targetPath].nextid[i] < level.numPaths &&
++       level.paths[self->targetPath].nextid[i] >= 0)
++    {
++      if(self->OldPaths[self->targetPath].nextid[i] == level.paths[self->targetPath].nextid[i])
++      {
++        oldpath = qtrue;
++      }
++      if(oldpath == qtrue)
++      {
++        oldpath = qfalse;
++      }
++      else
++      {
++        possiblepaths[possiblenextpath] = level.paths[self->targetPath].nextid[i];
++        possiblenextpath++;
++      }
++    }
++  }
++  if(possiblenextpath == 0)
++  {	
++    for(i = 0;i < level.numPaths; i++)
++    {
++      self->OldPaths[i].nextid[0] = -1;
++      self->OldPaths[i].nextid[1] = -1;
++      self->OldPaths[i].nextid[2] = -1;
++      self->OldPaths[i].nextid[3] = -1;
++      self->OldPaths[i].nextid[4] = -1;
++    }
++    self->state = FINDNEWPATH;
++    return;
++  }
++  else
++  {
++    self->state = TARGETPATH;
++    if(level.paths[self->targetPath].random < 0)
++    {
++      nextpath = 0;
++    }
++    else
++    {
++      srand( trap_Milliseconds( ) );
++      randnum = (int)(( (double)rand() / ((double)(RAND_MAX)+(double)(1)) ) * possiblenextpath);
++      nextpath = randnum;
++      //if(nextpath == possiblenextpath)
++      //{nextpath = possiblenextpath - 1;}
++    }
++    self->targetPath = possiblepaths[nextpath];
++    for(i = 0;i < 5;i++)
++    {
++      if(level.paths[self->targetPath].nextid[i] == lasttarget)
++      {
++        self->OldPaths[self->targetPath].nextid[i] = lasttarget;
++        i = 5;
++      }
++    }
++
++    self->timeFoundPath = level.time;
++    return;
++  }
++  return;
++}
++
++void pathfinding( gentity_t *self )
++{
++  switch(self->state)
++  {
++    case FINDNEWPATH: findnewpath(self); break;
++    case FINDNEXTPATH: findnextpath(self); break;
++    case TARGETPATH: break; //done in G_FrameThink
++    case LOST: findnewpath(self);break; //LOL :(
++    default: break;
++  }
++}
++
++void Bot_Buy( gentity_t *self )
++{
++  qboolean boughtweap = qfalse;
++  qboolean boughtup = qfalse;
++  qboolean buybatt = qfalse;
++  int weapon,upgrade;
++  int maxAmmo, maxClips;
++  int clientNum = self->client - level.clients;
++  if(self->client->ps.stats[ STAT_PTEAM ] != PTE_HUMANS){return;}
++  upgrade = UP_LIGHTARMOUR;
++  if(BG_InventoryContainsUpgrade( upgrade, self->client->ps.stats ))
++  {
++    BG_RemoveUpgradeFromInventory( upgrade, self->client->ps.stats );
++    G_AddCreditToClient( self->client, (short)BG_FindPriceForUpgrade( upgrade ), qfalse );
++  }
++  upgrade = UP_HELMET;
++  if(BG_InventoryContainsUpgrade( upgrade, self->client->ps.stats ))
++  {
++    BG_RemoveUpgradeFromInventory( upgrade, self->client->ps.stats );
++    G_AddCreditToClient( self->client, (short)BG_FindPriceForUpgrade( upgrade ), qfalse );
++  }
++  upgrade = UP_BATTPACK;
++  if(BG_InventoryContainsUpgrade( upgrade, self->client->ps.stats ))
++  {
++    BG_RemoveUpgradeFromInventory( upgrade, self->client->ps.stats );
++    G_AddCreditToClient( self->client, (short)BG_FindPriceForUpgrade( upgrade ), qfalse );
++  }
++  weapon = WP_MACHINEGUN;
++  if( BG_InventoryContainsWeapon( weapon, self->client->ps.stats ) )
++  {
++    BG_RemoveWeaponFromInventory( weapon, self->client->ps.stats );
++                //G_AddCreditToClient( self->client, (short)BG_FindPriceForWeapon( weapon ), qfalse );
++  }
++  weapon = WP_CHAINGUN;
++  if( BG_InventoryContainsWeapon( weapon, self->client->ps.stats ) )
++  {
++    BG_RemoveWeaponFromInventory( weapon, self->client->ps.stats );
++    G_AddCreditToClient( self->client, (short)BG_FindPriceForWeapon( weapon ), qfalse );
++  }
++  weapon = WP_LAS_GUN;
++  if( BG_InventoryContainsWeapon( weapon, self->client->ps.stats ) )
++  {
++    BG_RemoveWeaponFromInventory( weapon, self->client->ps.stats );
++    G_AddCreditToClient( self->client, (short)BG_FindPriceForWeapon( weapon ), qfalse );
++  }
++  weapon = WP_LUCIFER_CANNON;
++  if( BG_InventoryContainsWeapon( weapon, self->client->ps.stats ) )
++  {
++    BG_RemoveWeaponFromInventory( weapon, self->client->ps.stats );
++    G_AddCreditToClient( self->client, (short)BG_FindPriceForWeapon( weapon ), qfalse );
++  }
++  weapon = WP_FLAMER;
++  if( BG_InventoryContainsWeapon( weapon, self->client->ps.stats ) )
++  {
++    BG_RemoveWeaponFromInventory( weapon, self->client->ps.stats );
++    G_AddCreditToClient( self->client, (short)BG_FindPriceForWeapon( weapon ), qfalse );
++  }
++  weapon = WP_PULSE_RIFLE;
++  if( BG_InventoryContainsWeapon( weapon, self->client->ps.stats ) )
++  {
++    BG_RemoveWeaponFromInventory( weapon, self->client->ps.stats );
++    G_AddCreditToClient( self->client, (short)BG_FindPriceForWeapon( weapon ), qfalse );
++  }
++  weapon = WP_MASS_DRIVER;
++  if( BG_InventoryContainsWeapon( weapon, self->client->ps.stats ) )
++  {
++    BG_RemoveWeaponFromInventory( weapon, self->client->ps.stats );
++    G_AddCreditToClient( self->client, (short)BG_FindPriceForWeapon( weapon ), qfalse );
++  }
++  weapon = WP_SHOTGUN;
++  if( BG_InventoryContainsWeapon( weapon, self->client->ps.stats ) )
++  {
++    BG_RemoveWeaponFromInventory( weapon, self->client->ps.stats );
++    G_AddCreditToClient( self->client, (short)BG_FindPriceForWeapon( weapon ), qfalse );
++  }
++  weapon = WP_PAIN_SAW;
++  if( BG_InventoryContainsWeapon( weapon, self->client->ps.stats ) )
++  {
++    BG_RemoveWeaponFromInventory( weapon, self->client->ps.stats );
++    G_AddCreditToClient( self->client, (short)BG_FindPriceForWeapon( weapon ), qfalse );
++  }
++  if(g_humanStage.integer == 2)
++  {
++    upgrade = UP_BATTLESUIT;
++    if(!BG_InventoryContainsUpgrade( upgrade, self->client->ps.stats ) && 
++        BG_FindPriceForUpgrade( upgrade ) <= (short)self->client->ps.persistant[ PERS_CREDIT ] &&
++        !(BG_FindSlotsForUpgrade( upgrade ) & self->client->ps.stats[ STAT_SLOTS ]))
++    {
++      BG_AddUpgradeToInventory( upgrade, self->client->ps.stats );
++      G_AddCreditToClient( self->client, -(short)BG_FindPriceForUpgrade( upgrade ), qfalse );
++    }
++  }
++  upgrade = UP_LIGHTARMOUR;
++  if(!BG_InventoryContainsUpgrade( upgrade, self->client->ps.stats ) && 
++      BG_FindPriceForUpgrade( upgrade ) <= (short)self->client->ps.persistant[ PERS_CREDIT ] &&
++      !(BG_FindSlotsForUpgrade( upgrade ) & self->client->ps.stats[ STAT_SLOTS ]) && 
++      !BG_InventoryContainsUpgrade( UP_BATTLESUIT, self->client->ps.stats ))
++  {
++    BG_AddUpgradeToInventory( upgrade, self->client->ps.stats );
++    G_AddCreditToClient( self->client, -(short)BG_FindPriceForUpgrade( upgrade ), qfalse );
++  }
++  if(g_humanStage.integer == 1)
++  {
++    upgrade = UP_HELMET;
++    if(!BG_InventoryContainsUpgrade( upgrade, self->client->ps.stats ) && 
++        BG_FindPriceForUpgrade( upgrade ) <= (short)self->client->ps.persistant[ PERS_CREDIT ] &&
++        !(BG_FindSlotsForUpgrade( upgrade ) & self->client->ps.stats[ STAT_SLOTS ]) && 
++        !BG_InventoryContainsUpgrade( UP_BATTLESUIT, self->client->ps.stats ))
++    {
++      BG_AddUpgradeToInventory( upgrade, self->client->ps.stats );
++      G_AddCreditToClient( self->client, -(short)BG_FindPriceForUpgrade( upgrade ), qfalse );
++    }
++  }
++  if(g_humanStage.integer == 2 && g_bot_lcannon.integer > 0)
++  {
++    weapon = WP_LUCIFER_CANNON;
++    if( !BG_InventoryContainsWeapon( weapon, self->client->ps.stats ) &&
++         BG_FindPriceForWeapon( weapon ) <= (short)self->client->ps.persistant[ PERS_CREDIT ] &&
++         !(BG_FindSlotsForWeapon( weapon ) & self->client->ps.stats[ STAT_SLOTS ]))
++    {
++      boughtweap = qtrue;
++      buybatt = qtrue;
++    }
++  }
++  if(g_humanStage.integer == 1 && boughtweap == qfalse && g_bot_flamer.integer > 0)
++  {
++    weapon = WP_FLAMER;
++    if( !BG_InventoryContainsWeapon( weapon, self->client->ps.stats ) &&
++         BG_FindPriceForWeapon( weapon ) <= (short)self->client->ps.persistant[ PERS_CREDIT ] &&
++         !(BG_FindSlotsForWeapon( weapon ) & self->client->ps.stats[ STAT_SLOTS ]))
++    {
++      boughtweap = qtrue;
++    }
++  }
++  if(g_humanStage.integer == 1 && boughtweap == qfalse && g_bot_prifle.integer > 0)
++  {
++    weapon = WP_PULSE_RIFLE;
++    if( !BG_InventoryContainsWeapon( weapon, self->client->ps.stats ) &&
++         BG_FindPriceForWeapon( weapon ) <= (short)self->client->ps.persistant[ PERS_CREDIT ] &&
++         !(BG_FindSlotsForWeapon( weapon ) & self->client->ps.stats[ STAT_SLOTS ]))
++    {
++      boughtweap = qtrue;
++      buybatt = qtrue;
++    }
++  }
++  if(boughtweap == qfalse && g_bot_chaingun.integer > 0)
++  {
++    weapon = WP_CHAINGUN;
++    if( !BG_InventoryContainsWeapon( weapon, self->client->ps.stats ) &&
++         BG_FindPriceForWeapon( weapon ) <= (short)self->client->ps.persistant[ PERS_CREDIT ] &&
++         !(BG_FindSlotsForWeapon( weapon ) & self->client->ps.stats[ STAT_SLOTS ]))
++    {
++      boughtweap = qtrue;
++    }
++  }
++  if(boughtweap == qfalse && g_bot_mdriver.integer > 0)
++  {
++    weapon = WP_MASS_DRIVER;
++    if( !BG_InventoryContainsWeapon( weapon, self->client->ps.stats ) &&
++         BG_FindPriceForWeapon( weapon ) <= (short)self->client->ps.persistant[ PERS_CREDIT ] &&
++         !(BG_FindSlotsForWeapon( weapon ) & self->client->ps.stats[ STAT_SLOTS ]))
++    {
++      boughtweap = qtrue;
++      buybatt = qtrue;
++    }
++  }
++  if(boughtweap == qfalse && g_bot_lasgun.integer > 0)
++  {
++    weapon = WP_LAS_GUN;
++    if( !BG_InventoryContainsWeapon( weapon, self->client->ps.stats ) &&
++         BG_FindPriceForWeapon( weapon ) <= (short)self->client->ps.persistant[ PERS_CREDIT ] &&
++         !(BG_FindSlotsForWeapon( weapon ) & self->client->ps.stats[ STAT_SLOTS ]))
++    {
++      boughtweap = qtrue;
++      buybatt = qtrue;
++    }
++  }
++  if(boughtweap == qfalse && g_bot_shotgun.integer > 0)
++  {
++    weapon = WP_SHOTGUN;
++    if( !BG_InventoryContainsWeapon( weapon, self->client->ps.stats ) &&
++         BG_FindPriceForWeapon( weapon ) <= (short)self->client->ps.persistant[ PERS_CREDIT ] &&
++         !(BG_FindSlotsForWeapon( weapon ) & self->client->ps.stats[ STAT_SLOTS ]))
++    {
++      boughtweap = qtrue;
++    }
++  }
++  if(boughtweap == qfalse && g_bot_psaw.integer > 0)
++  {
++    weapon = WP_PAIN_SAW;
++    if( !BG_InventoryContainsWeapon( weapon, self->client->ps.stats ) &&
++         BG_FindPriceForWeapon( weapon ) <= (short)self->client->ps.persistant[ PERS_CREDIT ] &&
++         !(BG_FindSlotsForWeapon( weapon ) & self->client->ps.stats[ STAT_SLOTS ]))
++    {
++      boughtweap = qtrue;
++    }
++  }
++  if(boughtweap == qfalse && g_bot_mgun.integer > 0)
++  {
++    weapon = WP_MACHINEGUN;
++    if( !BG_InventoryContainsWeapon( weapon, self->client->ps.stats ) &&
++         BG_FindPriceForWeapon( weapon ) <= (short)self->client->ps.persistant[ PERS_CREDIT ] &&
++         !(BG_FindSlotsForWeapon( weapon ) & self->client->ps.stats[ STAT_SLOTS ]))
++    {
++      boughtweap = qtrue;
++    }
++  }
++  if(boughtweap == qtrue)
++  {
++    BG_AddWeaponToInventory( weapon, self->client->ps.stats );
++    BG_FindAmmoForWeapon( weapon, &maxAmmo, &maxClips );
++    if( BG_FindUsesEnergyForWeapon( weapon ) &&
++        BG_InventoryContainsUpgrade( UP_BATTPACK, self->client->ps.stats ) )
++      maxAmmo = (int)( (float)maxAmmo * BATTPACK_MODIFIER );
++    BG_PackAmmoArray( weapon, self->client->ps.ammo, self->client->ps.powerups,
++                      maxAmmo, maxClips );
++    G_AddCreditToClient( self->client, -(short)BG_FindPriceForWeapon( weapon ), qfalse );
++    G_ForceWeaponChange( self, weapon );
++  }
++  else
++  {
++    weapon = WP_BLASTER;
++    G_ForceWeaponChange( self, weapon );
++  }
++  upgrade = UP_BATTPACK;
++  if(!BG_InventoryContainsUpgrade( upgrade, self->client->ps.stats ) && 
++      BG_FindPriceForUpgrade( upgrade ) <= (short)self->client->ps.persistant[ PERS_CREDIT ] &&
++      !(BG_FindSlotsForUpgrade( upgrade ) & self->client->ps.stats[ STAT_SLOTS ]) && 
++      !BG_InventoryContainsUpgrade( UP_BATTLESUIT, self->client->ps.stats ) && 
++      buybatt == qtrue)
++  {
++    BG_AddUpgradeToInventory( upgrade, self->client->ps.stats );
++    G_AddCreditToClient( self->client, -(short)BG_FindPriceForUpgrade( upgrade ), qfalse );
++  }
++  G_GiveClientMaxAmmo( self, qtrue );
++  if(boughtup == qtrue || boughtweap == qtrue)
++  {ClientUserinfoChanged( clientNum, qfalse );}
++  self->buytime = level.time;
++  return;
++}
++
++
++void Bot_Evolve( gentity_t *self )
++{
++  vec3_t origin;
++  qboolean classfound = qfalse;
++  int class;
++  int levels;
++  int clientNum;
++  if(self->client->ps.stats[ STAT_PTEAM ] != PTE_ALIENS){return;}
++  clientNum = self->client - level.clients;
++  class = PCL_ALIEN_LEVEL4;
++  levels = BG_ClassCanEvolveFromTo( self->client->ps.stats[ STAT_PCLASS ],
++                                    class,
++                                    (short)self->client->ps.persistant[ PERS_CREDIT ], 0 );
++  if(BG_ClassIsAllowed( class ) && 
++     BG_FindStagesForClass( class, g_alienStage.integer ) && 
++     level.overmindPresent &&
++     G_RoomForClassChange( self, class, origin ) && 
++     !( self->client->ps.stats[ STAT_STATE ] & SS_WALLCLIMBING ) && 
++     !( self->client->ps.stats[ STAT_STATE ] & SS_WALLCLIMBINGCEILING ) &&
++     levels >= 0)
++  {
++    classfound = qtrue;
++  }
++  if(classfound == qfalse)
++  {
++    class = PCL_ALIEN_LEVEL3_UPG;
++    levels = BG_ClassCanEvolveFromTo( self->client->ps.stats[ STAT_PCLASS ],
++                                      class,
++                                      (short)self->client->ps.persistant[ PERS_CREDIT ], 0 );
++    if(BG_ClassIsAllowed( class ) && 
++       BG_FindStagesForClass( class, g_alienStage.integer ) && 
++       level.overmindPresent &&
++       G_RoomForClassChange( self, class, origin ) && 
++       !( self->client->ps.stats[ STAT_STATE ] & SS_WALLCLIMBING ) && 
++       !( self->client->ps.stats[ STAT_STATE ] & SS_WALLCLIMBINGCEILING ) &&
++       levels >= 0)
++    {
++      classfound = qtrue;
++    }
++  }
++  if(classfound == qfalse)
++  {
++    class = PCL_ALIEN_LEVEL3;
++    levels = BG_ClassCanEvolveFromTo( self->client->ps.stats[ STAT_PCLASS ],
++                                      class,
++                                      (short)self->client->ps.persistant[ PERS_CREDIT ], 0 );
++    if(BG_ClassIsAllowed( class ) && 
++       BG_FindStagesForClass( class, g_alienStage.integer ) && 
++       level.overmindPresent &&
++       G_RoomForClassChange( self, class, origin ) && 
++       !( self->client->ps.stats[ STAT_STATE ] & SS_WALLCLIMBING ) && 
++       !( self->client->ps.stats[ STAT_STATE ] & SS_WALLCLIMBINGCEILING ) &&
++       levels >= 0)
++    {
++      classfound = qtrue;
++    }
++  }
++  if(classfound == qfalse)
++  {
++    class = PCL_ALIEN_LEVEL2_UPG;
++    levels = BG_ClassCanEvolveFromTo( self->client->ps.stats[ STAT_PCLASS ],
++                                      class,
++                                      (short)self->client->ps.persistant[ PERS_CREDIT ], 0 );
++    if(BG_ClassIsAllowed( class ) && 
++       BG_FindStagesForClass( class, g_alienStage.integer ) && 
++       level.overmindPresent &&
++       G_RoomForClassChange( self, class, origin ) && 
++       !( self->client->ps.stats[ STAT_STATE ] & SS_WALLCLIMBING ) && 
++       !( self->client->ps.stats[ STAT_STATE ] & SS_WALLCLIMBINGCEILING ) &&
++       levels >= 0)
++    {
++      classfound = qtrue;
++    }
++  }
++  if(classfound == qfalse)
++  {
++    class = PCL_ALIEN_LEVEL2;
++    levels = BG_ClassCanEvolveFromTo( self->client->ps.stats[ STAT_PCLASS ],
++                                      class,
++                                      (short)self->client->ps.persistant[ PERS_CREDIT ], 0 );
++    if(BG_ClassIsAllowed( class ) && 
++       BG_FindStagesForClass( class, g_alienStage.integer ) && 
++       level.overmindPresent &&
++       G_RoomForClassChange( self, class, origin ) && 
++       !( self->client->ps.stats[ STAT_STATE ] & SS_WALLCLIMBING ) && 
++       !( self->client->ps.stats[ STAT_STATE ] & SS_WALLCLIMBINGCEILING ) &&
++       levels >= 0)
++    {
++      classfound = qtrue;
++    }
++  }
++  if(classfound == qfalse)
++  {
++    class = PCL_ALIEN_LEVEL1_UPG;
++    levels = BG_ClassCanEvolveFromTo( self->client->ps.stats[ STAT_PCLASS ],
++                                      class,
++                                      (short)self->client->ps.persistant[ PERS_CREDIT ], 0 );
++    if(BG_ClassIsAllowed( class ) && 
++       BG_FindStagesForClass( class, g_alienStage.integer ) && 
++       level.overmindPresent &&
++       G_RoomForClassChange( self, class, origin ) && 
++       !( self->client->ps.stats[ STAT_STATE ] & SS_WALLCLIMBING ) && 
++       !( self->client->ps.stats[ STAT_STATE ] & SS_WALLCLIMBINGCEILING ) &&
++       levels >= 0)
++    {
++      classfound = qtrue;
++    }
++  }
++  if(classfound == qfalse)
++  {
++    class = PCL_ALIEN_LEVEL1;
++    levels = BG_ClassCanEvolveFromTo( self->client->ps.stats[ STAT_PCLASS ],
++                                      class,
++                                      (short)self->client->ps.persistant[ PERS_CREDIT ], 0 );
++    if(BG_ClassIsAllowed( class ) && 
++       BG_FindStagesForClass( class, g_alienStage.integer ) && 
++       level.overmindPresent &&
++       G_RoomForClassChange( self, class, origin ) && 
++       !( self->client->ps.stats[ STAT_STATE ] & SS_WALLCLIMBING ) && 
++       !( self->client->ps.stats[ STAT_STATE ] & SS_WALLCLIMBINGCEILING ) &&
++       levels >= 0)
++    {
++      classfound = qtrue;
++    }
++  }
++  if(classfound == qtrue)
++  {
++    self->client->pers.evolveHealthFraction = (float)self->client->ps.stats[ STAT_HEALTH ] /
++        (float)BG_FindHealthForClass( self->client->ps.stats[ STAT_PCLASS ] );
++    if( self->client->pers.evolveHealthFraction < 0.0f )
++      self->client->pers.evolveHealthFraction = 0.0f;
++    else if( self->client->pers.evolveHealthFraction > 1.0f )
++      self->client->pers.evolveHealthFraction = 1.0f;
++    G_AddCreditToClient( self->client, -(short)levels, qtrue );
++    self->client->pers.classSelection = class;
++    ClientUserinfoChanged( clientNum, qfalse );
++    VectorCopy( origin, self->s.pos.trBase );
++    ClientSpawn( self, self, self->s.pos.trBase, self->s.apos.trBase );	
++    self->evolvetime = level.time;
++    return;
++  }
++  self->evolvetime = level.time;
++  return;
++}
++
++void G_BotThink( gentity_t *self )
++{
++  int distance = 0;
++  int clicksToStopChase = 30; //5 seconds
++  int tooCloseDistance = 100; // about 1/3 of turret range
++  int forwardMove = 127; // max speed
++  int tempEntityIndex = -1;
++  trace_t   tr;
++  vec3_t    end;
++  vec3_t    mins, maxs;
++  vec3_t  forward, right, up;
++  vec3_t  muzzle;
++  gentity_t *traceEnt;
++  qboolean followFriend = qfalse;
++  if( !( self->r.svFlags & SVF_BOT ) )
++  {
++    return;
++  }
++  self->isblocked = qfalse;
++  if(self->state == TARGETPATH && !self->botEnemy && !self->botFriend)
++  {
++    //AngleVectors( self->client->ps.viewangles, forward, right, up );
++    //CalcMuzzlePoint( self, forward, right, up, muzzle );
++    VectorSet( mins, -20, -20, -20 );
++    VectorSet( maxs, 20, 20, 20 );
++    AngleVectors( self->client->ps.viewangles, forward, right, up );
++    CalcMuzzlePoint( self, forward, right, up, muzzle );
++    VectorMA( muzzle, 20, forward, end );
++    trap_Trace( &tr, muzzle, mins, maxs, end, self->s.number, MASK_SHOT );
++    traceEnt = &g_entities[ tr.entityNum ];
++    if(traceEnt->health > 0)
++    {self->isblocked = qtrue;}
++    else
++    {self->isblocked = qfalse;}
++  }
++  if(self->botEnemy || self->botFriend)
++  {
++    //self->client->pers.cmd.buttons = 0;
++    self->client->pers.cmd.forwardmove = 0;
++    self->client->pers.cmd.upmove = 0;
++    self->client->pers.cmd.rightmove = 0;
++    self->timeFoundPath = level.time;
++  }
++  // reset botEnemy if enemy is dead
++  if(self->botEnemy->health <= 0) {
++    self->botEnemy = NULL;
++  }
++  else
++  {
++    if(botTargetInRange( self, self->botEnemy ) == qfalse)
++    {
++      self->botEnemy = NULL;
++    }
++  }
++  // if friend dies, reset status to regular
++  if(self->botFriend->health <= 0) {
++    self->botCommand = BOT_REGULAR;
++    self->botFriend = NULL;
++  }
++  //Use blaster if weapon out of ammo
++  if(self->client->ps.stats[ STAT_PTEAM ] == PTE_HUMANS && 
++     self->noammo == qtrue &&
++     self->client->ps.weapon != WP_BLASTER)
++  {G_ForceWeaponChange( self, WP_BLASTER );}
++
++  //Use medkit if low hp
++  if(self->client->ps.stats[ STAT_PTEAM ] == PTE_HUMANS && 
++     BG_InventoryContainsUpgrade( UP_MEDKIT, self->client->ps.stats ) &&
++     self->health <= 40)
++  {BG_ActivateUpgrade( UP_MEDKIT, self->client->ps.stats );}
++
++  //Buy stuff from arm if within range
++  if(G_BuildableRange( self->client->ps.origin, 100, BA_H_ARMOURY ) && 
++     self->client->ps.stats[ STAT_PTEAM ] == PTE_HUMANS &&
++     level.time - self->buytime > 5000)
++  {
++    Bot_Buy(self);
++  }
++  if(self->client->ps.stats[ STAT_PTEAM ] == PTE_ALIENS &&
++     level.time - self->evolvetime > 10000 && 
++     g_bot_evolve.integer > 0)
++  {Bot_Evolve(self);}
++  if(self->client->ps.weapon == WP_MACHINEGUN && g_bot_mgun.integer <= 0)
++  {
++    G_ForceWeaponChange( self, WP_BLASTER );
++  }
++  if(self->client->ps.weapon == WP_SHOTGUN && g_bot_shotgun.integer <= 0)
++  {
++    G_ForceWeaponChange( self, WP_BLASTER );
++  }
++  if(self->client->ps.weapon == WP_PAIN_SAW && g_bot_psaw.integer <= 0)
++  {
++    G_ForceWeaponChange( self, WP_BLASTER );
++  }
++  if(self->client->ps.weapon == WP_LAS_GUN && g_bot_lasgun.integer <= 0)
++  {
++    G_ForceWeaponChange( self, WP_BLASTER );
++  }
++  if(self->client->ps.weapon == WP_MASS_DRIVER && g_bot_mdriver.integer <= 0)
++  {
++    G_ForceWeaponChange( self, WP_BLASTER );
++  }
++  if(self->client->ps.weapon == WP_PULSE_RIFLE && g_bot_prifle.integer <= 0)
++  {
++    G_ForceWeaponChange( self, WP_BLASTER );
++  }
++  if(self->client->ps.weapon == WP_FLAMER && g_bot_flamer.integer <= 0)
++  {
++    G_ForceWeaponChange( self, WP_BLASTER );
++  }
++  if(self->client->ps.weapon == WP_LUCIFER_CANNON && g_bot_lcannon.integer <= 0)
++  {
++    G_ForceWeaponChange( self, WP_BLASTER );
++  }
++  if(self->client->ps.weapon == WP_CHAINGUN && g_bot_chaingun.integer <= 0)
++  {
++    G_ForceWeaponChange( self, WP_BLASTER );
++  }
++   // what mode are we in?
++  switch(self->botCommand) {
++    case BOT_REGULAR:
++                        // if there is enemy around, rush them and attack.
++      if(self->botEnemy) {
++                                // we already have an enemy. See if still in LOS.
++        if(!botTargetInRange(self,self->botEnemy)) {
++                                        // if it's been over clicksToStopChase clicks since we last seen him in LOS then do nothing, else follow him!
++          if(self->botEnemyLastSeen > clicksToStopChase) {
++                                                // forget him!
++            self->botEnemy = NULL;
++            self->botEnemyLastSeen = 0;
++          } else {
++                                                //chase him
++            self->botEnemyLastSeen++;
++          }
++        } else {
++                                        // we see him!
++          self->botEnemyLastSeen = 0;
++        }
++      }
++
++      if(!self->botEnemy) {
++                                // try to find closest enemy
++        if(level.time - self->searchtime > 750 * self->botSkillLevel)
++        {
++          self->searchtime = level.time;
++          tempEntityIndex = botFindClosestEnemy(self, qfalse);
++          if(tempEntityIndex >= 0)
++            self->botEnemy = &g_entities[tempEntityIndex];
++        }
++      }
++
++      if(!self->botEnemy) {
++        pathfinding(self); //Roam the map!!!
++      } else {
++        self->timeFoundPath = level.time;
++        self->state = FINDNEWPATH;
++                                // enemy!
++        distance = botGetDistanceBetweenPlayer(self, self->botEnemy);
++        botAimAtTarget(self, self->botEnemy);
++
++        // enable wallwalk
++        if( BG_ClassHasAbility( self->client->ps.stats[ STAT_PCLASS ], SCA_WALLCLIMBER ) )
++        {
++          self->client->pers.cmd.upmove = -1;
++        }
++        else if( self->client->ps.stats[ STAT_PTEAM ] == PTE_ALIENS && level.time - self->jumptime > 3000 && 
++                 self->client->ps.stats[ STAT_PCLASS ] != PCL_ALIEN_LEVEL3_UPG && 
++                 self->client->ps.stats[ STAT_PCLASS ] != PCL_ALIEN_LEVEL3)
++        {
++                                        //self->client->ps.velocity[2] = BG_FindJumpMagnitudeForClass( self->client->ps.stats[ STAT_PCLASS ] );
++          self->client->pers.cmd.upmove = 20;
++          if(level.time - self->jumptime > 4000)
++            self->jumptime = level.time;
++        }
++
++        botShootIfTargetInRange(self,self->botEnemy);
++
++        if(self->botEnemy->client || self->client->ps.stats[ STAT_PTEAM ] == PTE_ALIENS)
++        {
++          if(self->client->ps.stats[ STAT_PTEAM ] == PTE_HUMANS && 
++             g_human_strafe.integer > 0)
++          {
++            self->client->pers.cmd.rightmove = -100;
++            if(self->client->time1000 >= 500)
++              self->client->pers.cmd.rightmove = 100;
++          }
++          //self->client->pers.cmd.forwardmove = forwardMove;
++          if(self->client->ps.stats[ STAT_PTEAM ] == PTE_HUMANS && 
++             Distance( self->s.pos.trBase, self->botEnemy->s.pos.trBase ) < 300 && 
++             self->client->ps.weapon != WP_PAIN_SAW && 
++             self->client->ps.weapon != WP_FLAMER)
++          {
++            self->client->pers.cmd.forwardmove = -100;
++          }
++          else
++          {
++            self->client->pers.cmd.forwardmove = forwardMove;
++            self->client->pers.cmd.rightmove = -100;
++            if(self->client->time1000 >= 500)
++              self->client->pers.cmd.rightmove = 100;
++          }
++        }
++        else
++        {
++          if(self->client->ps.stats[ STAT_PTEAM ] == PTE_HUMANS)//Human target buildable
++          {
++            if(self->client->ps.weapon == WP_PAIN_SAW)
++            {
++              self->client->pers.cmd.forwardmove = forwardMove;
++            }
++            else if(self->client->ps.weapon == WP_FLAMER)
++            {
++              self->client->pers.cmd.forwardmove = forwardMove;
++            }
++            else
++            {
++              self->client->pers.cmd.upmove = -1;
++            }
++          }
++        }
++      }
++      break;
++    case BOT_IDLE:
++       // just stand there and look pretty.
++      break;
++    case BOT_ATTACK:
++      // .. not sure ..
++      break;
++    case BOT_STAND_GROUND:
++      // stand ground but attack enemies if you can reach.
++      if(self->botEnemy) {
++        // we already have an enemy. See if still in LOS.
++        if(!botTargetInRange(self,self->botEnemy)) {
++          //we are not in LOS
++          self->botEnemy = NULL;
++        }
++      }
++      if(!self->botEnemy) {
++        // try to find closest enemy
++        tempEntityIndex = botFindClosestEnemy(self, qfalse);
++        if(tempEntityIndex >= 0)
++          self->botEnemy = &g_entities[tempEntityIndex];
++      }
++      if(!self->botEnemy) {
++        // no enemy
++      } else {
++        // enemy!
++        distance = botGetDistanceBetweenPlayer(self, self->botEnemy);
++        //botAimAtTarget(self, self->botEnemy);
++
++        // enable wallwalk
++        if( BG_ClassHasAbility( self->client->ps.stats[ STAT_PCLASS ], SCA_WALLCLIMBER ) ) {
++          self->client->pers.cmd.upmove = -1;
++        }
++        botShootIfTargetInRange(self,self->botEnemy);
++      }
++      break;
++    case BOT_DEFENSIVE:
++      // if there is an enemy around, rush them but not too far from where you are standing when given this command
++      break;
++    case BOT_FOLLOW_FRIEND_PROTECT:
++      // run towards friend, attack enemy
++      break;
++    case BOT_FOLLOW_FRIEND_ATTACK:
++      // run with friend until enemy spotted, then rush enemy
++      if(self->botEnemy) {
++        // we already have an enemy. See if still in LOS.
++        if(!botTargetInRange(self,self->botEnemy)) {
++          // if it's been over clicksToStopChase clicks since we last seen him in LOS then do nothing, else follow him!
++          if(self->botEnemyLastSeen > clicksToStopChase) {
++            // forget him!
++            self->botEnemy = NULL;
++            self->botEnemyLastSeen = 0;
++          } else {
++            //chase him
++            self->botEnemyLastSeen++;
++          }
++        } else {
++          // we see him!
++          self->botEnemyLastSeen = 0;
++        }
++
++        //if we are chasing enemy, reset counter for friend LOS .. if its true
++        if(self->botEnemy) {
++          if(botTargetInRange(self,self->botFriend)) {
++            self->botFriendLastSeen = 0;
++          } else {
++            self->botFriendLastSeen++;
++          }
++        }
++      }
++
++      if(!self->botEnemy) {
++        // try to find closest enemy
++        tempEntityIndex = botFindClosestEnemy(self, qfalse);
++        if(tempEntityIndex >= 0)
++          self->botEnemy = &g_entities[tempEntityIndex];
++      }
++
++      if(!self->botEnemy) {
++        // no enemy
++        if(self->botFriend) {
++          // see if our friend is in LOS
++          if(botTargetInRange(self,self->botFriend)) {
++            // go to him!
++            followFriend = qtrue;
++            self->botFriendLastSeen = 0;
++          } else {
++            // if it's been over clicksToStopChase clicks since we last seen him in LOS then do nothing, else follow him!
++            if(self->botFriendLastSeen > clicksToStopChase) {
++              // forget him!
++              followFriend = qfalse;
++            } else {
++              self->botFriendLastSeen++;
++              followFriend = qtrue;
++            }
++          }
++
++          if(followFriend) {
++            distance = botGetDistanceBetweenPlayer(self, self->botFriend);
++            //botAimAtTarget(self, self->botFriend);
++
++            // enable wallwalk
++            if( BG_ClassHasAbility( self->client->ps.stats[ STAT_PCLASS ], SCA_WALLCLIMBER ) ) {
++              self->client->pers.cmd.upmove = -1;
++            }
++
++            //botShootIfTargetInRange(self,self->botEnemy);
++            if(distance>tooCloseDistance) {
++              self->client->pers.cmd.forwardmove = forwardMove;
++              self->client->pers.cmd.rightmove = -100;
++              if(self->client->time1000 >= 500)
++                self->client->pers.cmd.rightmove = 100;
++            }
++          }
++        }
++      } else {
++         // enemy!
++        distance = botGetDistanceBetweenPlayer(self, self->botEnemy);
++        //botAimAtTarget(self, self->botEnemy);
++
++        // enable wallwalk
++        if( BG_ClassHasAbility( self->client->ps.stats[ STAT_PCLASS ], SCA_WALLCLIMBER ) ) {
++          self->client->pers.cmd.upmove = -1;
++        }
++
++        botShootIfTargetInRange(self,self->botEnemy);
++        self->client->pers.cmd.forwardmove = forwardMove;
++        self->client->pers.cmd.rightmove = -100;
++        if(self->client->time1000 >= 500)
++          self->client->pers.cmd.rightmove = 100;
++      }
++      break;
++    case BOT_FOLLOW_FRIEND_IDLE:
++      // run with friend and stick with him no matter what. no attack mode.
++      if(self->botFriend) {
++        // see if our friend is in LOS
++        if(botTargetInRange(self,self->botFriend)) {
++                                        // go to him!
++          followFriend = qtrue;
++          self->botFriendLastSeen = 0;
++        } else {
++          // if it's been over clicksToStopChase clicks since we last seen him in LOS then do nothing, else follow him!
++          if(self->botFriendLastSeen > clicksToStopChase) {
++            // forget him!
++            followFriend = qfalse;
++          } else {
++            //chase him
++            self->botFriendLastSeen++;
++            followFriend = qtrue;
++          }
++        }
++
++        if(followFriend) {
++          distance = botGetDistanceBetweenPlayer(self, self->botFriend);
++          //botAimAtTarget(self, self->botFriend);
++
++          // enable wallwalk
++          if( BG_ClassHasAbility( self->client->ps.stats[ STAT_PCLASS ], SCA_WALLCLIMBER ) ) {
++            self->client->pers.cmd.upmove = -1;
++          }
++
++          //botShootIfTargetInRange(self,self->botFriend);
++          if(distance>tooCloseDistance) {
++            self->client->pers.cmd.forwardmove = forwardMove;
++            self->client->pers.cmd.rightmove = -100;
++            if(self->client->time1000 >= 500)
++              self->client->pers.cmd.rightmove = 100;
++          }
++        }
++      }
++      break;
++    case BOT_TEAM_KILLER:
++      // attack enemies, then teammates!
++      if(self->botEnemy) {
++        // we already have an enemy. See if still in LOS.
++        if(!botTargetInRange(self,self->botEnemy)) {
++          // if it's been over clicksToStopChase clicks since we last seen him in LOS then do nothing, else follow him!
++          if(self->botEnemyLastSeen > clicksToStopChase) {
++            // forget him!
++            self->botEnemy = NULL;
++            self->botEnemyLastSeen = 0;
++          } else {
++            //chase him
++            self->botEnemyLastSeen++;
++          }
++        } else {
++          // we see him!
++          self->botEnemyLastSeen = 0;
++        }
++      }
++
++      if(!self->botEnemy) {
++        // try to find closest enemy
++        tempEntityIndex = botFindClosestEnemy(self, qtrue);
++        if(tempEntityIndex >= 0)
++          self->botEnemy = &g_entities[tempEntityIndex];
++      }
++
++      if(!self->botEnemy) {
++        // no enemy, we're all alone :(
++      } else {
++        // enemy!
++        distance = botGetDistanceBetweenPlayer(self, self->botEnemy);
++        //botAimAtTarget(self, self->botEnemy);
++
++        // enable wallwalk
++        if( BG_ClassHasAbility( self->client->ps.stats[ STAT_PCLASS ], SCA_WALLCLIMBER ) ) {
++          self->client->pers.cmd.upmove = -1;
++        }
++
++        botShootIfTargetInRange(self,self->botEnemy);
++        self->client->pers.cmd.forwardmove = forwardMove;
++        self->client->pers.cmd.rightmove = -100;
++        if(self->client->time1000 >= 500)
++          self->client->pers.cmd.rightmove = 100;
++      }
++      break;
++    default:
++      // dunno.
++      break;
++  }
++}
++
++void G_BotSpectatorThink( gentity_t *self ) {
++  if( self->client->ps.pm_flags & PMF_QUEUED) {
++    //we're queued to spawn, all good
++    return;
++  }
++
++  if( self->client->sess.sessionTeam == TEAM_SPECTATOR ) {
++    int teamnum = self->client->pers.teamSelection;
++    int clientNum = self->client->ps.clientNum;
++
++    if( teamnum == PTE_HUMANS ) {
++      self->client->pers.classSelection = PCL_HUMAN;
++      self->client->ps.stats[ STAT_PCLASS ] = PCL_HUMAN;
++      self->client->pers.humanItemSelection = WP_MACHINEGUN;
++      G_PushSpawnQueue( &level.humanSpawnQueue, clientNum );
++    } else if( teamnum == PTE_ALIENS) {
++      self->client->pers.classSelection = PCL_ALIEN_LEVEL0;
++      self->client->ps.stats[ STAT_PCLASS ] = PCL_ALIEN_LEVEL0;
++      G_PushSpawnQueue( &level.alienSpawnQueue, clientNum );
++    }
++  }
++}
++
++
++qboolean botAimAtTarget( gentity_t *self, gentity_t *target ) {
++  int Ax,Ay,Az,Bx,By,Bz = 0;
++  vec3_t dirToTarget, angleToTarget;
++  vec3_t top = { 0, 0, 0};
++  vec3_t  forward, right, up;
++  vec3_t  muzzle;
++  AngleVectors( self->client->ps.viewangles, forward, right, up );
++  CalcMuzzlePoint( self, forward, right, up, muzzle );
++  if(self->client->ps.stats[ STAT_PCLASS ] == PCL_ALIEN_LEVEL3 || 
++     self->client->ps.stats[ STAT_PCLASS ] == PCL_ALIEN_LEVEL3_UPG)
++  {
++    Ax = target->s.pos.trBase[0];
++    Ay = target->s.pos.trBase[1];
++    Az = target->s.pos.trBase[2];
++    Bx = self->s.pos.trBase[0];
++    By = self->s.pos.trBase[1];
++    Bz = self->s.pos.trBase[2];
++    if(self->client->ps.stats[ STAT_PCLASS ] == PCL_ALIEN_LEVEL3)
++    {top[2] = (int)(sqrt((Ax - Bx)*(Ax - Bx) + (Ay - By)*(Ay - By) + (Az - Bz)*(Az - Bz)) / 3);}
++    else
++    {top[2] = (int)(sqrt((Ax - Bx)*(Ax - Bx) + (Ay - By)*(Ay - By) + (Az - Bz)*(Az - Bz)) / 5);}
++  }
++  VectorAdd( target->s.pos.trBase, top, top);
++  VectorSubtract( top, muzzle, dirToTarget );
++  VectorNormalize( dirToTarget );
++  vectoangles( dirToTarget, angleToTarget );
++  self->client->ps.delta_angles[ 0 ] = ANGLE2SHORT( angleToTarget[ 0 ] );
++  self->client->ps.delta_angles[ 1 ] = ANGLE2SHORT( angleToTarget[ 1 ] );
++  self->client->ps.delta_angles[ 2 ] = ANGLE2SHORT( angleToTarget[ 2 ] );
++  return qtrue;
++}
++
++qboolean botTargetInRange( gentity_t *self, gentity_t *target ) {
++  trace_t   trace;
++  gentity_t *traceEnt;
++  vec3_t  forward, right, up;
++  vec3_t  muzzle;
++  AngleVectors( self->client->ps.viewangles, forward, right, up );
++  CalcMuzzlePoint( self, forward, right, up, muzzle );
++
++  if( !self || !target )
++    return qfalse;
++
++  if( !self->client || ( !target->client && g_bot_attackbuildables.integer == 0 ) )
++    return qfalse;
++
++  if( target->client->ps.stats[ STAT_STATE ] & SS_HOVELING )
++    return qfalse;
++
++  if( target->health <= 0 )
++    return qfalse;
++
++  if( self->client->ps.stats[ STAT_PTEAM ] == PTE_ALIENS &&
++      self->client->ps.stats[ STAT_PCLASS ] != PCL_ALIEN_LEVEL3_UPG &&
++      self->client->ps.stats[ STAT_PCLASS ] != PCL_ALIEN_LEVEL3 &&
++      target->s.pos.trBase[2] - self->s.pos.trBase[2] > 150)
++    return qfalse;
++  if(self->client->ps.weapon == WP_PAIN_SAW && 
++     target->s.pos.trBase[2] - self->s.pos.trBase[2] > 150)
++  {
++    return qfalse;
++  }
++  else if(self->client->ps.weapon == WP_FLAMER && 
++          target->s.pos.trBase[2] - self->s.pos.trBase[2] > 200)
++  {
++    return qfalse;
++  }
++  if(self->client->ps.stats[ STAT_PTEAM ] == PTE_ALIENS)
++  {
++    if(self->client->ps.stats[ STAT_PCLASS ] == PCL_ALIEN_LEVEL4 && 
++       Distance( self->s.pos.trBase, target->s.pos.trBase ) > g_level4_range.integer)
++    {return qfalse;}
++    else if(self->client->ps.stats[ STAT_PCLASS ] == PCL_ALIEN_LEVEL3_UPG && 
++            Distance( self->s.pos.trBase, target->s.pos.trBase ) > g_level3UPG_range.integer)
++    {return qfalse;}
++    else if(self->client->ps.stats[ STAT_PCLASS ] == PCL_ALIEN_LEVEL3 && 
++            Distance( self->s.pos.trBase, target->s.pos.trBase ) > g_level3_range.integer)
++    {return qfalse;}
++    else if(self->client->ps.stats[ STAT_PCLASS ] == PCL_ALIEN_LEVEL2_UPG && 
++            Distance( self->s.pos.trBase, target->s.pos.trBase ) > g_level2UPG_range.integer)
++    {return qfalse;}
++    else if(self->client->ps.stats[ STAT_PCLASS ] == PCL_ALIEN_LEVEL2 && 
++            Distance( self->s.pos.trBase, target->s.pos.trBase ) > g_level2_range.integer)
++    {return qfalse;}
++    else if(self->client->ps.stats[ STAT_PCLASS ] == PCL_ALIEN_LEVEL1_UPG && 
++            Distance( self->s.pos.trBase, target->s.pos.trBase ) > g_level1UPG_range.integer)
++    {return qfalse;}
++    else if(self->client->ps.stats[ STAT_PCLASS ] == PCL_ALIEN_LEVEL1 && 
++            Distance( self->s.pos.trBase, target->s.pos.trBase ) > g_level1_range.integer)
++    {return qfalse;}
++    else if(self->client->ps.stats[ STAT_PCLASS ] == PCL_ALIEN_LEVEL0 && 
++            Distance( self->s.pos.trBase, target->s.pos.trBase ) > g_level0_range.integer)
++    {return qfalse;}
++    else if((self->client->ps.stats[ STAT_PCLASS ] == PCL_HUMAN || 
++             self->client->ps.stats[ STAT_PCLASS ] == PCL_HUMAN_BSUIT ) && 
++             Distance( self->s.pos.trBase, target->s.pos.trBase ) > g_human_range.integer)
++    {return qfalse;}
++  }
++  else
++  {
++    if(Distance( self->s.pos.trBase, target->s.pos.trBase ) > 3000)
++    {return qfalse;}
++  }
++  //BG_FindViewheightForClass(  self->client->ps.stats[ STAT_PCLASS ], &vh, NULL );
++  //top[2]=vh;
++  //VectorAdd( self->s.pos.trBase, top, top);
++  //draw line between us and the target and see what we hit
++  //trap_Trace( &trace, self->s.pos.trBase, NULL, NULL, target->s.pos.trBase, self->s.number, MASK_SHOT );
++
++  trap_Trace( &trace, muzzle, NULL, NULL, target->s.pos.trBase, self->s.number, MASK_SHOT );
++  traceEnt = &g_entities[ trace.entityNum ];
++  //if( trace.fraction < 1.0 )
++  //{return qfalse;}
++  // check that we hit a human and not an object
++  //if( !traceEnt->client )
++  //	return qfalse;
++
++  //check our target is in LOS
++  if(!(traceEnt == target))
++    return qfalse;
++
++  return qtrue;
++}
++
++int botFindClosestEnemy( gentity_t *self, qboolean includeTeam ) {
++  // return enemy entity index, or -1
++  int vectorRange = MGTURRET_RANGE * 3;
++  int i;
++  int total_entities;
++  int entityList[ MAX_GENTITIES ];
++  vec3_t    range;
++  vec3_t    mins, maxs;
++  gentity_t *target;
++
++  VectorSet( range, vectorRange, vectorRange, vectorRange );
++  VectorAdd( self->client->ps.origin, range, maxs );
++  VectorSubtract( self->client->ps.origin, range, mins );
++
++  total_entities = trap_EntitiesInBox( mins, maxs, entityList, MAX_GENTITIES );
++
++  // check list for enemies
++  for( i = 0; i < total_entities; i++ ) {
++    target = &g_entities[ entityList[ i ] ];
++
++    if ( g_bot_attackbuildables.integer == 0 )
++    {
++      if (target->client && self != target && target->client->ps.stats[ STAT_PTEAM ] != self->client->ps.stats[ STAT_PTEAM ])
++      {
++        // aliens ignore if it's in LOS because they have radar
++        //if(self->client->ps.stats[ STAT_PTEAM ] == PTE_ALIENS) {
++        //	return entityList[ i ];
++        //} else {
++        if( botTargetInRange( self, target ) ) {
++          return entityList[ i ];
++        }
++        //}
++      }
++    }
++    else if ( g_bot_attackbuildables.integer == 1 )
++    {
++      if ((target->client && self != target && target->client->ps.stats[ STAT_PTEAM ] != self->client->ps.stats[ STAT_PTEAM ])
++           || (!target->client && self != target && self->client->ps.stats[ STAT_PTEAM ] == PTE_ALIENS && self->client->ps.stats[ STAT_PCLASS ] != PCL_ALIEN_LEVEL0 &&
++           (target->s.modelindex == BA_H_SPAWN
++           || target->s.modelindex == BA_H_MGTURRET
++           || target->s.modelindex == BA_H_TESLAGEN
++           || target->s.modelindex == BA_H_ARMOURY
++           || target->s.modelindex == BA_H_DCC
++           || target->s.modelindex == BA_H_MEDISTAT
++           || target->s.modelindex == BA_H_REACTOR
++           || target->s.modelindex == BA_H_REPEATER)) ||
++           (!target->client && self != target && self->client->ps.stats[ STAT_PTEAM ] == PTE_HUMANS && (
++             target->s.modelindex == BA_A_SPAWN ||
++           target->s.modelindex == BA_A_BARRICADE ||
++           target->s.modelindex == BA_A_BOOSTER ||
++           target->s.modelindex == BA_A_ACIDTUBE ||
++           target->s.modelindex == BA_A_HIVE ||
++           target->s.modelindex == BA_A_TRAPPER ||
++           target->s.modelindex == BA_A_OVERMIND ||
++           target->s.modelindex == BA_A_HOVEL)) || (!target->client && self != target && self->client->ps.stats[ STAT_PCLASS ] == PCL_ALIEN_LEVEL0 && (target->s.modelindex == BA_H_MGTURRET)))
++      {
++        // aliens ignore if it's in LOS because they have radar
++        //if(self->client->ps.stats[ STAT_PTEAM ] == PTE_ALIENS) {
++        //	return entityList[ i ];
++        //} else {
++        if( botTargetInRange( self, target ) ) {
++          return entityList[ i ];
++        }
++        //}
++      }
++    }
++  }
++
++  if(includeTeam) {
++    // check list for enemies in team
++    for( i = 0; i < total_entities; i++ ) {
++      target = &g_entities[ entityList[ i ] ];
++
++      if( target->client && self !=target && target->client->ps.stats[ STAT_PTEAM ] == self->client->ps.stats[ STAT_PTEAM ] ) {
++        // aliens ignore if it's in LOS because they have radar
++        //if(self->client->ps.stats[ STAT_PTEAM ] == PTE_ALIENS) {
++        //	return entityList[ i ];
++        //} else {
++        if( botTargetInRange( self, target ) ) {
++          return entityList[ i ];
++        }
++        //}
++      }
++    }
++  }
++
++  return -1;
++}
++
++// really an int? what if it's too long?
++int botGetDistanceBetweenPlayer( gentity_t *self, gentity_t *player ) {
++  return Distance( self->s.pos.trBase, player->s.pos.trBase );
++}
++
++qboolean botShootIfTargetInRange( gentity_t *self, gentity_t *target )
++{
++  if(botTargetInRange(self,target))
++  {
++    int nahoda = 0;
++    srand( trap_Milliseconds( ) );
++    //nahoda = (rand() % 20);
++    nahoda = (int)(( (double)rand() / ((double)(RAND_MAX)+(double)(1)) ) * 20);
++    self->client->pers.cmd.buttons = 0;
++    if (self->client->pers.classSelection == PCL_ALIEN_BUILDER0_UPG)//adv granger
++    {
++      if (nahoda > 10)
++        self->client->pers.cmd.buttons |= BUTTON_ATTACK2;
++      else
++        self->client->pers.cmd.buttons |= BUTTON_USE_HOLDABLE;
++    }
++    else if (self->client->pers.classSelection == PCL_ALIEN_LEVEL1_UPG)//adv basilisk
++    {
++      if (nahoda > 10)
++        self->client->pers.cmd.buttons |= BUTTON_ATTACK2;
++      else
++        self->client->pers.cmd.buttons |= BUTTON_ATTACK;
++    }
++    else if (self->client->pers.classSelection == PCL_ALIEN_LEVEL2_UPG)//adv marauder
++    {
++      if (nahoda < 8)
++        self->client->pers.cmd.buttons |= BUTTON_ATTACK2;
++      else
++        self->client->pers.cmd.buttons |= BUTTON_ATTACK;
++    }
++    else if (self->client->pers.classSelection == PCL_ALIEN_LEVEL3)//dragon
++    {
++      if(Distance( self->s.pos.trBase, target->s.pos.trBase ) > 150 && 
++         self->client->ps.stats[ STAT_MISC ] < LEVEL3_POUNCE_SPEED)
++        self->client->pers.cmd.buttons |= BUTTON_ATTACK2;
++      else
++        self->client->pers.cmd.buttons |= BUTTON_ATTACK;
++    }
++    else if (self->client->pers.classSelection == PCL_ALIEN_LEVEL3_UPG)//adv dragon
++    {
++      if(self->client->ps.ammo[WP_ALEVEL3_UPG] > 0 && 
++         Distance( self->s.pos.trBase, target->s.pos.trBase ) > 150 )
++        self->client->pers.cmd.buttons |= BUTTON_USE_HOLDABLE;
++      else
++      {	
++        if(Distance( self->s.pos.trBase, target->s.pos.trBase ) > 150 && 
++           self->client->ps.stats[ STAT_MISC ] < LEVEL3_POUNCE_UPG_SPEED)
++          self->client->pers.cmd.buttons |= BUTTON_ATTACK2;
++        else
++          self->client->pers.cmd.buttons |= BUTTON_ATTACK;
++      }
++    }
++    else//others
++    {
++      if(self->client->ps.stats[ STAT_PTEAM ] == PTE_HUMANS)//Human target buildable
++      {
++        if(self->client->ps.weapon == WP_FLAMER)
++        {
++          if(Distance( self->s.pos.trBase, target->s.pos.trBase ) < 200)
++            self->client->pers.cmd.buttons |= BUTTON_ATTACK;
++        }
++        else if(self->client->ps.weapon == WP_LUCIFER_CANNON)
++        {
++          self->client->pers.cmd.buttons |= BUTTON_ATTACK2;
++        }
++        else
++        {
++          self->client->pers.cmd.buttons |= BUTTON_ATTACK;
++        }
++      }
++      else
++      {
++        self->client->pers.cmd.buttons |= BUTTON_ATTACK;
++      }
++    }
++    //if (nahoda == 15 || nahoda == 16)
++    //	self->client->pers.cmd.buttons |= BUTTON_GESTURE;
++    //if (nahoda > 11 && nahoda < 15)
++    //	self->client->pers.cmd.upmove = 20;
++  }
++  return qfalse;
++}
+Index: src/game/g_main.c
+===================================================================
+--- src/game/g_main.c	(revision 83)
++++ src/game/g_main.c	(working copy)
+@@ -225,6 +225,30 @@
+ vmCvar_t  mod_jetpackConsume;
+ vmCvar_t  mod_jetpackRegen;
+ 
++vmCvar_t  g_pathediting;
++vmCvar_t  g_bot;
++vmCvar_t  g_bot_attackbuildables;
++vmCvar_t  g_human_range;
++vmCvar_t  g_human_strafe;
++vmCvar_t  g_level0_range;
++vmCvar_t  g_level1_range;
++vmCvar_t  g_level1UPG_range;
++vmCvar_t  g_level2_range;
++vmCvar_t  g_level2UPG_range;
++vmCvar_t  g_level3_range;
++vmCvar_t  g_level3UPG_range;
++vmCvar_t  g_level4_range;
++vmCvar_t  g_bot_evolve;
++vmCvar_t  g_bot_mgun;
++vmCvar_t  g_bot_shotgun;
++vmCvar_t  g_bot_psaw;
++vmCvar_t  g_bot_lasgun;
++vmCvar_t  g_bot_mdriver;
++vmCvar_t  g_bot_chaingun;
++vmCvar_t  g_bot_prifle;
++vmCvar_t  g_bot_flamer;
++vmCvar_t  g_bot_lcannon;
++
+ vmCvar_t  g_adminExpireTime;
+ 
+ vmCvar_t  g_autoGhost;
+@@ -441,6 +465,31 @@
+   { &mod_jetpackConsume, "mod_jetpackConsume", "2", CVAR_ARCHIVE, 0, qfalse  },
+   { &mod_jetpackRegen, "mod_jetpackRegen", "3", CVAR_ARCHIVE, 0, qfalse  },
+ 
++  { &g_pathediting, "g_pathediting", "0", CVAR_ARCHIVE, 0, qfalse },
++  { &g_bot, "g_bot", "1", CVAR_ARCHIVE, 0, qfalse },
++  { &g_bot_attackbuildables, "g_bot_attackbuildables", "1", CVAR_ARCHIVE, 0, qfalse },
++  { &g_pathediting, "g_pathediting", "0", CVAR_ARCHIVE, 0, qfalse },
++  { &g_human_range, "g_human_range", "3000", CVAR_ARCHIVE, 0, qfalse },
++  { &g_human_strafe, "g_human_strafe", "0", CVAR_ARCHIVE, 0, qfalse },
++  { &g_level0_range, "g_level0_range", "1000", CVAR_ARCHIVE, 0, qfalse },
++  { &g_level1_range, "g_level1_range", "1100", CVAR_ARCHIVE, 0, qfalse },
++  { &g_level1UPG_range, "g_level1UPG_range", "1200", CVAR_ARCHIVE, 0, qfalse },
++  { &g_level2_range, "g_level2_range", "1300", CVAR_ARCHIVE, 0, qfalse },
++  { &g_level2UPG_range, "g_level2UPG_range", "1400", CVAR_ARCHIVE, 0, qfalse },
++  { &g_level3_range, "g_level3_range", "1500", CVAR_ARCHIVE, 0, qfalse },
++  { &g_level3UPG_range, "g_level3UPG_range", "2000", CVAR_ARCHIVE, 0, qfalse },
++  { &g_level4_range, "g_level4_range", "300", CVAR_ARCHIVE, 0, qfalse },
++  { &g_bot_evolve, "g_bot_evolve", "1", CVAR_ARCHIVE, 0, qfalse },
++  { &g_bot_mgun, "g_bot_mgun", "1", CVAR_ARCHIVE, 0, qfalse },
++  { &g_bot_shotgun, "g_bot_shotgun", "1", CVAR_ARCHIVE, 0, qfalse },
++  { &g_bot_psaw, "g_bot_psaw", "1", CVAR_ARCHIVE, 0, qfalse },
++  { &g_bot_lasgun, "g_bot_lasgun", "1", CVAR_ARCHIVE, 0, qfalse },
++  { &g_bot_mdriver, "g_bot_mdriver", "1", CVAR_ARCHIVE, 0, qfalse },
++  { &g_bot_chaingun, "g_bot_chaingun", "1", CVAR_ARCHIVE, 0, qfalse },
++  { &g_bot_prifle, "g_bot_prifle", "1", CVAR_ARCHIVE, 0, qfalse },
++  { &g_bot_flamer, "g_bot_flamer", "1", CVAR_ARCHIVE, 0, qfalse },
++  { &g_bot_lcannon, "g_bot_lcannon", "1", CVAR_ARCHIVE, 0, qfalse },
++
+   { &g_teamKillThreshold, "g_teamKillThreshold", "0", CVAR_ARCHIVE, 0, qfalse  },
+ 
+   { &g_aimbotAdvertBan, "g_aimbotAdvertBan", "0", CVAR_ARCHIVE, 0, qfalse  },
+@@ -706,6 +755,82 @@
+ 
+ /*
+ ============
++G_PathLoad
++
++============
++*/
++
++void G_PathLoad( void )
++{
++  int i = 0;
++  fileHandle_t f;
++  int len;
++  char *path;
++  char line[ MAX_STRING_CHARS ];
++  char map[ MAX_QPATH ];
++  level.numPaths = 0;
++  trap_Cvar_VariableStringBuffer( "mapname", map, sizeof( map ) );
++  for(i = 0; i < MAX_PATHS;i++)
++  {
++    level.paths[i].coord[0] = 0;
++    level.paths[i].coord[1] = 0;
++    level.paths[i].coord[2] = 0;
++    level.paths[i].nextid[0] = -1;
++    level.paths[i].nextid[1] = -1;
++    level.paths[i].nextid[2] = -1;
++    level.paths[i].nextid[3] = -1;
++    level.paths[i].nextid[4] = -1;
++    level.paths[i].random = -1;
++    level.paths[i].timeout = 10000;
++    level.paths[i].action = 0;
++  }
++  len = trap_FS_FOpenFile( va( "paths/%s/path.dat", map ), &f, FS_READ );
++  if( len < 0 )
++  {
++    G_Printf( "Found no path.dat for map\n" );
++    return;
++  }
++  path = G_Alloc( len + 1 );
++  trap_FS_Read( path, len, f );
++  *( path + len ) = '\0';
++  trap_FS_FCloseFile( f );
++  i = 0;
++  while( *path )
++  {
++    if( i >= sizeof( line ) - 1 )
++    {
++      G_Printf( "Error loading path.dat for map\n" );
++      return;
++    }
++    line[ i++ ] = *path;
++    line[ i ] = '\0';
++    if( *path == '\n' )
++    {
++      i = 0; 
++      if( level.numPaths >= MAX_PATHS ){G_Printf( "Reached path limit\n" );return;}
++      sscanf( line, "%d %f %f %f %d %d %d %d %d %d %d %d\n", 
++              &level.numPaths,
++              &level.paths[level.numPaths].coord[0], 
++              &level.paths[level.numPaths].coord[1], 
++              &level.paths[level.numPaths].coord[2],
++              &level.paths[level.numPaths].nextid[0],
++              &level.paths[level.numPaths].nextid[1],
++              &level.paths[level.numPaths].nextid[2],
++              &level.paths[level.numPaths].nextid[3],
++              &level.paths[level.numPaths].nextid[4],
++              &level.paths[level.numPaths].random,
++              &level.paths[level.numPaths].timeout,
++              &level.paths[level.numPaths].action ); 
++      if(level.paths[level.numPaths].timeout <= 0){level.paths[level.numPaths].timeout = 10000;}
++      level.numPaths ++;
++    }
++    path++;
++  }
++  G_Printf( va("Loaded %d paths\n", level.numPaths) );
++}
++
++/*
++============
+ G_InitGame
+ 
+ ============
+@@ -828,6 +953,9 @@
+   // general initialization
+   G_FindTeams( );
+ 
++  // load a path file
++  G_PathLoad( );
++
+   //TA:
+   BG_InitClassOverrides( );
+   BG_InitBuildableOverrides( );
+@@ -1728,7 +1856,10 @@
+ 
+   // clean up powerup info
+   memset( ent->client->ps.powerups, 0, sizeof( ent->client->ps.powerups ) );
+-
++  if( ent->r.svFlags & SVF_BOT )
++  {
++    ClientDisconnect( ent->client->ps.clientNum );
++  }
+   ent->client->ps.eFlags = 0;
+   ent->s.eFlags = 0;
+   ent->s.eType = ET_GENERAL;
+Index: src/game/g_admin.c
+===================================================================
+--- src/game/g_admin.c	(revision 83)
++++ src/game/g_admin.c	(working copy)
+@@ -80,6 +80,16 @@
+       "[^3name|slot#|IP^7] (^5time^7) (^5reason^7)"
+     },
+ 
++    {"bot", G_admin_bot, "bot",
++    "Add or delete bot(s)",
++    "[^3add/del^7] [name] [^5aliens/humans^7] (skill)"
++    },
++
++    {"botcmd", G_admin_botcmd, "bot",
++    "Change bot behavior.",
++    "[^3name^7] [^5regular/idle/attack/standground/defensive/followprotect/followattack/followidle/teamkill^7]"
++    },
++
+     {"buildlog", G_admin_buildlog, "buildlog",
+       "display a list of recent builds and deconstructs, optionally specifying"
+       " a team",
+@@ -7239,3 +7249,129 @@
+   return qtrue;
+ }
+ 
++qboolean G_admin_bot( gentity_t *ent, int skiparg ) {
++  // add [name] (team) (skill)
++  // del [name]
++  int minargc;
++
++  char command[10];
++  char name[ MAX_NAME_LENGTH ];
++  char name_s[ MAX_NAME_LENGTH ];
++  //char name2[ MAX_NAME_LENGTH ];
++  char name2_s[ MAX_NAME_LENGTH ];
++  char team[10];
++  int team_int;
++  char skill[2];
++  int skill_int;
++  qboolean success = qfalse;
++  int i, j;
++
++  //char s2[ MAX_NAME_LENGTH ];
++  //char n2[ MAX_NAME_LENGTH ];
++  //int logmatch = -1, logmatches = 0;
++  //int i, j;
++  //qboolean exactmatch = qfalse;
++
++  minargc = 3 + skiparg;
++  if( G_SayArgc() < minargc )	{
++    ADMP( "^7Please have at least command and name.\n" );
++    ADMP( "^3!bot: ^7usage: !bot [add/del] [name] (team) (skill)\n" );
++    return qfalse;
++  }
++
++  G_SayArgv( 1 + skiparg, command, sizeof( command ) );
++  G_SayArgv( 2 + skiparg, name, sizeof( name ) );
++  G_SanitiseString( name, name_s, sizeof( name_s ) );
++
++  if(!Q_stricmp(command,"add")) {
++    // add [name] [team] (skill)
++    minargc = 4 + skiparg;
++    if( G_SayArgc() < minargc )	{
++      ADMP( "^7Please have at least name and team.\n" );
++      ADMP( "^3!bot: ^7usage: !bot [add/del] [name] [humans/aliens] (skill)\n" );
++      return qfalse;
++    }
++
++    G_SayArgv( 3 + skiparg, team, sizeof( team ) );
++
++    if(!Q_stricmp(team,"humans")) {
++      team_int = PTE_HUMANS;
++    } else if(!Q_stricmp(team,"aliens")) {
++      team_int = PTE_ALIENS;
++    } else {
++      ADMP( "^7Invalid bot team.\n" );
++      ADMP( "^3!bot: ^7usage: !bot add [name] [humans/aliens] (skill)\n" );
++      return qfalse;
++    }
++
++    minargc = 5 + skiparg;
++    if(G_SayArgc() < minargc) {
++      skill_int = 0;
++    } else {
++      G_SayArgv( 4 + skiparg, skill, sizeof( skill ) );
++      skill_int = atoi(skill);
++    }
++
++    // got name, team_int and skill_int
++    G_BotAdd(name, team_int, skill_int , -1);
++    return qtrue;
++  } else if(!Q_stricmp(command,"del")) {
++    // del [name]
++    success = qfalse;
++    for( i = 0; i < MAX_ADMIN_NAMELOGS && g_admin_namelog[ i ];i++ ) {
++      if( g_admin_namelog[ i ]->slot >= 0 ) {
++        for( j = 0; j < MAX_ADMIN_NAMELOG_NAMES && g_admin_namelog[ i ]->name[ j ][ 0 ]; j++ ) {
++          G_SanitiseString(g_admin_namelog[ i ]->name[ j ], name2_s, sizeof( name2_s ) );
++          if( strstr( name2_s, name_s ) ) {
++            G_BotDel(g_admin_namelog[ i ]->slot);
++            success = qtrue;
++          }
++        }
++      }
++    }
++
++    return success;
++    //ADMP( "delete not implemented yet\n" );
++    //return qfalse;
++  }
++
++  ADMP( "^3!bot: ^7usage: !bot [add/del] [name] (team) (skill)\n" );
++  return qfalse;
++}
++
++qboolean G_admin_botcmd( gentity_t *ent, int skiparg ) {
++  int minargc;
++  char name[ MAX_NAME_LENGTH ];
++  char name_s[ MAX_NAME_LENGTH ];
++  char name2_s[ MAX_NAME_LENGTH ];
++  char command[ 32 ];
++  int i, j;
++  qboolean success = qfalse;
++
++  //[botname] [command]
++  minargc = 3 + skiparg;
++  if( G_SayArgc() < minargc )	{
++    ADMP( "^3!botcmd: ^7usage: !botcmd [botname] [command]\n" );
++    return qfalse;
++  }
++
++  G_SayArgv( 1 + skiparg, name, sizeof( name ) );
++  G_SayArgv( 2 + skiparg, command, sizeof( command ) );
++  G_SanitiseString( name, name_s, sizeof( name_s ) );
++
++  success = qfalse;
++  for( i = 0; i < MAX_ADMIN_NAMELOGS && g_admin_namelog[ i ];i++ ) {
++    if( g_admin_namelog[ i ]->slot >= 0 ) {
++      for( j = 0; j < MAX_ADMIN_NAMELOG_NAMES && g_admin_namelog[ i ]->name[ j ][ 0 ]; j++ ) {
++        G_SanitiseString(g_admin_namelog[ i ]->name[ j ], name2_s, sizeof( name2_s ) );
++        if( strstr( name2_s, name_s ) ) {
++          G_BotCmd(ent, g_admin_namelog[ i ]->slot,command);
++          success = qtrue;
++        }
++      }
++    }
++  }
++
++  return success;
++}
++
+Index: src/game/g_admin.h
+===================================================================
+--- src/game/g_admin.h	(revision 83)
++++ src/game/g_admin.h	(working copy)
+@@ -257,6 +257,9 @@
+ qboolean G_admin_drop( gentity_t *ent, int skiparg );
+ qboolean G_admin_invisible( gentity_t *ent, int skiparg );
+ 
++qboolean G_admin_bot( gentity_t *ent, int skiparg );
++qboolean G_admin_botcmd( gentity_t *ent, int skiparg );
++
+ void G_admin_print( gentity_t *ent, char *m );
+ void G_admin_buffer_print( gentity_t *ent, char *m );
+ void G_admin_buffer_begin( void );
+Index: src/game/g_client.c
+===================================================================
+--- src/game/g_client.c	(revision 83)
++++ src/game/g_client.c	(working copy)
+@@ -1417,6 +1417,11 @@
+ 
+   ent = &g_entities[ clientNum ];
+ 
++  if( ent->inuse == qtrue && ent->r.svFlags & SVF_BOT )
++  {
++    G_BotReload( ent, clientNum );
++  }
++
+   trap_GetUserinfo( clientNum, userinfo, sizeof( userinfo ) );
+ 
+   value = Info_ValueForKey( userinfo, "cl_guid" );
+Index: src/game/g_cmds.c
+===================================================================
+--- src/game/g_cmds.c	(revision 83)
++++ src/game/g_cmds.c	(working copy)
+@@ -1659,6 +1659,8 @@
+  
+   if( !Q_stricmp( arg1, "kick" ) )
+   {
++    gentity_t *bot;
++
+     if( G_admin_permission( &g_entities[ clientNum ], ADMF_IMMUNITY ) )
+     {
+       trap_SendServerCommand( ent-g_entities,
+@@ -1668,6 +1670,15 @@
+       return;
+     }
+ 
++
++    bot = &g_entities[ clientNum ];
++    if( ( bot->r.svFlags & SVF_BOT ) )
++    {
++      trap_SendServerCommand( ent-g_entities,
++           "print \"callvote: you can't kick bots\n\"" );
++      return;
++     }
++
+     // use ip in case this player disconnects before the vote ends
+     Com_sprintf( level.voteString, sizeof( level.voteString ),
+       "!ban %s \"%s\" vote kick", level.clients[ clientNum ].pers.ip,
+@@ -2302,6 +2313,8 @@
+ 
+   if( !Q_stricmp( arg1, "kick" ) )
+   {
++    gentity_t *bot;
++
+     if( G_admin_permission( &g_entities[ clientNum ], ADMF_IMMUNITY ) )
+     {
+       trap_SendServerCommand( ent-g_entities,
+@@ -2311,6 +2324,13 @@
+       return;
+     }
+ 
++    bot = &g_entities[ clientNum ];
++    if( ( bot->r.svFlags & SVF_BOT ) )
++    {
++      trap_SendServerCommand( ent-g_entities,
++           "print \"callvote: you can't kick bots\n\"" );
++      return;
++     }
+ 
+     // use ip in case this player disconnects before the vote ends
+     Com_sprintf( level.teamVoteString[ cs_offset ],
+@@ -4972,6 +4992,528 @@
+      total-value, type ) );
+  }
+ 
++/*
++=================
++Cmd_Node_f
++
++Spawn path node
++=================
++*/
++void Cmd_Node_f( gentity_t *ent )
++{
++  char cmd[ MAX_TOKEN_CHARS ] = "";
++  char timeout[ MAX_TOKEN_CHARS ] = "";
++  char action[ MAX_TOKEN_CHARS ] = "";
++  int countz = 0;
++  int countz2 = 0;
++  fileHandle_t f;
++  int len;
++  char *s;
++  char map[ MAX_QPATH ];
++  char fileName[ MAX_OSPATH ];
++  int i,i2,distance,Ax,Ay,Az,Bx,By,Bz = 0;
++  int timeout2 = 0;
++  int nearbynodeid[ MAX_PATHS ];
++  int numnearby = 0;
++  qboolean delpath = qfalse;
++  qboolean pathfound = qfalse;
++  qboolean linked = qfalse;
++  qboolean linked2 = qfalse;
++  qboolean deleted = qfalse;
++  if(g_pathediting.integer <= 0)
++  {
++    trap_SendServerCommand( ent-g_entities,
++                            "print \"g_pathediting is off.\n\"");
++    return;
++  }
++  trap_Cvar_VariableStringBuffer( "mapname", map, sizeof( map ) );
++  for(i = 0; i < level.numPaths; i++ )
++  {
++    Ax = level.paths[i].coord[0];
++    Ay = level.paths[i].coord[1];
++    Az = level.paths[i].coord[2];
++    Bx = ent->s.pos.trBase[0];
++    By = ent->s.pos.trBase[1];
++    Bz = ent->s.pos.trBase[2];
++    deleted = qfalse;
++    for(i2 = 0;i2 < 5;i2++)
++    {
++      if(level.paths[i].nextid[i2] < 0)
++      {deleted = qtrue;}
++    }
++    if(deleted == qtrue)
++    {
++      deleted = qfalse;
++      continue;
++    }
++    distance = sqrt((Ax - Bx)*(Ax - Bx) + (Ay - By)*(Ay - By) + (Az - Bz)*(Az - Bz));
++    if(distance < 100)
++    {
++      nearbynodeid[numnearby] = i;
++      numnearby++;
++      continue;
++    }
++  }
++  if(G_SayArgc( ) != 2 && G_SayArgc( ) != 3)
++  {
++    trap_SendServerCommand( ent-g_entities,
++                            "print \"Usage: node [add|connect|disconnect|random|move|cancel|timeout|action|clear|delete|save]\n\"");
++    for(i = 0;i < numnearby; i++)
++    {
++      trap_SendServerCommand( ent-g_entities,
++                              va("print \"^5Nearby Node: %d ^2(X:%f Y:%f Z:%f) ^1%d %d %d %d %d ^3Random:^7%d ^3Timeout:^7%d ^3Action:^7%d\n\"", nearbynodeid[i],
++                                  level.paths[nearbynodeid[i]].coord[0],
++                                  level.paths[nearbynodeid[i]].coord[1],
++                                  level.paths[nearbynodeid[i]].coord[2],
++                                  level.paths[nearbynodeid[i]].nextid[0],
++                                  level.paths[nearbynodeid[i]].nextid[1],
++                                  level.paths[nearbynodeid[i]].nextid[2],
++                                  level.paths[nearbynodeid[i]].nextid[3],
++                                  level.paths[nearbynodeid[i]].nextid[4],
++                                  level.paths[nearbynodeid[i]].random,
++                                  level.paths[nearbynodeid[i]].timeout,
++                                  level.paths[nearbynodeid[i]].action) );
++    }
++    return;
++  }
++  if(G_SayArgc( ) == 2 || G_SayArgc( ) == 3)
++  {
++    trap_Argv( 1, cmd, sizeof( cmd ) );
++    if(numnearby > 1 && Q_stricmp( cmd, "cancel" ) && Q_stricmp( cmd, "save" ) )
++    {
++      trap_SendServerCommand( ent-g_entities,
++                              "print \"Too many nodes nearby.\n\"");
++      return;
++    }
++    if(G_SayArgc( ) == 3 && !Q_stricmp( cmd, "timeout" ))
++    {
++      if(numnearby <= 0)
++      {
++        trap_SendServerCommand( ent-g_entities,
++                                "print \"No nearby nodes.\n\"");
++        return;
++      }
++      trap_Argv( 2, timeout, sizeof( timeout ) );
++      timeout2 = atoi(timeout);
++      if(timeout2 < 0){timeout2 = 500;}
++      else if(timeout2 > 100000){timeout2 = 100000;}
++      level.paths[nearbynodeid[0]].timeout = timeout2;
++      trap_SendServerCommand( ent-g_entities,
++                              va("print \"Node timeout set to %d ms.\n\"",timeout2));
++      return;
++    }
++    else if(G_SayArgc( ) == 3 && !Q_stricmp( cmd, "action" ))
++    {
++      if(numnearby <= 0)
++      {
++        trap_SendServerCommand( ent-g_entities,
++                                "print \"No nearby nodes.\n\"");
++        return;
++      }
++      trap_Argv( 2, action, sizeof( action ) );
++      if(!Q_stricmp( action, "jump" ))
++      {level.paths[nearbynodeid[0]].action = BOT_JUMP;}
++      else if(!Q_stricmp( action, "wallclimb" ))
++      {level.paths[nearbynodeid[0]].action = BOT_WALLCLIMB;}
++      else if(!Q_stricmp( action, "kneel" ))
++      {level.paths[nearbynodeid[0]].action = BOT_KNEEL;}
++      else if(!Q_stricmp( action, "pounce" ))
++      {level.paths[nearbynodeid[0]].action = BOT_POUNCE;}
++      else if(!Q_stricmp( action, "none" ))
++      {level.paths[nearbynodeid[0]].action = 0;}
++      else
++      {trap_SendServerCommand( ent-g_entities,
++                                "print \"Unknown action (jump,wallclimb,\n\"");return;}
++                                trap_SendServerCommand( ent-g_entities,
++                                    "print \"Node action set.\n\"");
++                                return;	
++    }
++    else if( !Q_stricmp( cmd, "add" ) )
++    {
++      if(numnearby > 0)
++      {
++        trap_SendServerCommand( ent-g_entities,
++                                "print \"Too close to another node.\n\"");
++        return;
++      }
++      if(level.numPaths >= MAX_PATHS)
++      {
++        trap_SendServerCommand( ent-g_entities,
++                                "print \"Reached Max amount of nodes.\n\"" );
++        return;
++      }
++      for(i = 0; i < level.numPaths; i++ )
++      {
++        for(i2 = 0;i2 < 5;i2++)
++        {
++          if(level.paths[i].nextid[i2] < 0)
++          {pathfound = qtrue;}
++        }
++        if(pathfound == qtrue)
++        {break;}
++      }
++      if(pathfound == qtrue)
++      {
++        level.paths[i].coord[0] = ent->s.pos.trBase[0];
++        level.paths[i].coord[1] = ent->s.pos.trBase[1];
++        level.paths[i].coord[2] = ent->s.pos.trBase[2];
++        level.paths[i].nextid[0] = 1000 + MAX_PATHS;
++        level.paths[i].nextid[1] = 1000 + MAX_PATHS;
++        level.paths[i].nextid[2] = 1000 + MAX_PATHS;
++        level.paths[i].nextid[3] = 1000 + MAX_PATHS;
++        level.paths[i].nextid[4] = 1000 + MAX_PATHS;
++        level.paths[i].random = 0;
++        level.paths[i].timeout = 10000;
++        level.paths[i].action = 0;
++        trap_SendServerCommand( ent-g_entities,
++                                va("print \"Saved Node #%d.\n\"", i));
++      }
++      else
++      {
++        level.paths[level.numPaths].coord[0] = ent->s.pos.trBase[0];
++        level.paths[level.numPaths].coord[1] = ent->s.pos.trBase[1];
++        level.paths[level.numPaths].coord[2] = ent->s.pos.trBase[2];
++        level.paths[level.numPaths].nextid[0] = 1000 + MAX_PATHS;
++        level.paths[level.numPaths].nextid[1] = 1000 + MAX_PATHS;
++        level.paths[level.numPaths].nextid[2] = 1000 + MAX_PATHS;
++        level.paths[level.numPaths].nextid[3] = 1000 + MAX_PATHS;
++        level.paths[level.numPaths].nextid[4] = 1000 + MAX_PATHS;
++        level.paths[level.numPaths].random = 0;
++        level.paths[level.numPaths].timeout = 10000;
++        level.paths[level.numPaths].action = 0;
++        trap_SendServerCommand( ent-g_entities,
++                                va("print \"Saved Node #%d.\n\"", level.numPaths));
++        level.numPaths++;
++      }
++    }
++    else if( !Q_stricmp( cmd, "connect" ) )
++    {
++      if(numnearby <= 0)
++      {
++        trap_SendServerCommand( ent-g_entities,
++                                "print \"No nearby nodes.\n\"");
++        return;
++      }
++      ent->discpathid = -1;
++      ent->movepathid = -1;
++      if(ent->pathid < 0 || ent->pathid >= level.numPaths)
++      {
++        ent->pathid = nearbynodeid[0];
++        trap_SendServerCommand( ent-g_entities,
++                                va("print \"Node #%d selected. Now select another node to connect to.\n\"", nearbynodeid[0]));
++        return;
++      }
++      else if(ent->pathid > -1 && ent->pathid < level.numPaths)
++      {
++        linked = qfalse;
++        linked2 = qfalse;
++        pathfound = qfalse;
++        if(nearbynodeid[0] == ent->pathid)
++        {
++          trap_SendServerCommand( ent-g_entities,
++                                  "print \"Node deselected.\n\"");
++          ent->pathid = -1;
++          return;
++        }
++        for(i = 0;i < 5;i++)
++        {
++          if(level.paths[nearbynodeid[0]].nextid[i] < level.numPaths)
++          {countz++;}
++          if(level.paths[ent->pathid].nextid[i] < level.numPaths)
++          {countz2++;}
++          if(level.paths[nearbynodeid[0]].nextid[i] == ent->pathid)
++          {
++            linked = qtrue;
++          }
++          if(level.paths[ent->pathid].nextid[i] == nearbynodeid[0])
++          {
++            linked2 = qtrue;
++          }
++        }
++        if(countz >= 5)
++        {
++          trap_SendServerCommand( ent-g_entities,
++                                  "print \"This node is full.\n\"");
++                                        //ent->pathid = -1;
++          return;
++        }
++        if(countz2 >= 5)
++        {
++          trap_SendServerCommand( ent-g_entities,
++                                  "print \"Selected node is full.\n\"");
++          ent->pathid = -1;
++          return;
++        }
++        if(linked == qtrue && linked2 == qtrue)
++        {
++          trap_SendServerCommand( ent-g_entities,
++                                  "print \"Both nodes are already linked.\n\"");
++          ent->pathid = -1;
++          return;
++        }
++        countz = 0;
++        countz2 = 0;
++        for(i = 0;i < 5;i++)
++        {
++          if(level.paths[nearbynodeid[0]].nextid[i] >= MAX_PATHS)
++          {countz = i; i = 5;break;}
++        }
++        for(i = 0;i < 5;i++)
++        {
++          if(level.paths[ent->pathid].nextid[i] >= MAX_PATHS)
++          {countz2 = i; i = 5; break;}
++        }
++        if(linked == qtrue)
++        {
++          trap_SendServerCommand( ent-g_entities,
++                                  va("print \"Node #%d is already linked to selected. Linking selected to this node.\n\"", nearbynodeid[0]));
++          level.paths[ent->pathid].nextid[countz2] = nearbynodeid[0];
++          trap_SendServerCommand( ent-g_entities,
++                                  va("print \"#%d ----> #%d \n\"", ent->pathid, nearbynodeid[0]));
++          ent->pathid = -1;
++          return;
++        }
++        if(linked2 == qtrue)
++        {
++          trap_SendServerCommand( ent-g_entities,
++                                  va("print \"Selected node #%d is already linked to this. Linking this to selected node.\n\"", ent->pathid));
++          level.paths[nearbynodeid[0]].nextid[countz] = ent->pathid;
++          trap_SendServerCommand( ent-g_entities,
++                                  va("print \"#%d ----> #%d \n\"", nearbynodeid[0], ent->pathid));
++          ent->pathid = -1;
++          return;
++        }
++        if(linked == qfalse && linked2 == qfalse)
++        {
++          level.paths[ent->pathid].nextid[countz2] = nearbynodeid[0];
++          level.paths[nearbynodeid[0]].nextid[countz] = ent->pathid;
++          trap_SendServerCommand( ent-g_entities,
++                                  va("print \"#%d <---> #%d \n\"", nearbynodeid[0], ent->pathid));
++          ent->pathid = -1;
++          return;
++        }
++      }
++      else
++      {ent->pathid = -1;}
++    }
++    else if( !Q_stricmp( cmd, "clear" ) )
++    {
++      if(numnearby <= 0)
++      {
++        trap_SendServerCommand( ent-g_entities,
++                                "print \"No nearby nodes.\n\"");
++        return;
++      }
++      level.paths[nearbynodeid[0]].nextid[0] = 1000 + MAX_PATHS;
++      level.paths[nearbynodeid[0]].nextid[1] = 1000 + MAX_PATHS;
++      level.paths[nearbynodeid[0]].nextid[2] = 1000 + MAX_PATHS;
++      level.paths[nearbynodeid[0]].nextid[3] = 1000 + MAX_PATHS;
++      level.paths[nearbynodeid[0]].nextid[4] = 1000 + MAX_PATHS;
++      level.paths[nearbynodeid[0]].random = 0;
++      level.paths[nearbynodeid[0]].timeout = 0;
++      level.paths[nearbynodeid[0]].action = 0;
++      trap_SendServerCommand( ent-g_entities,
++                              va("print \"Cleared Node #%d.\n\"", nearbynodeid[0]));
++      return;
++    }
++    else if( !Q_stricmp( cmd, "move" ) )
++    {
++      ent->discpathid = -1;
++      ent->pathid = -1;
++      if(ent->movepathid < 0 || ent->movepathid >= level.numPaths)
++      {
++        ent->movepathid = nearbynodeid[0];
++        trap_SendServerCommand( ent-g_entities,
++                                va("print \"Node #%d Selected.\n\"", nearbynodeid[0]));
++        return;
++      }
++      else if(ent->movepathid >= 0 && ent->movepathid < level.numPaths)
++      {
++        if(nearbynodeid[0] == ent->movepathid)
++        {
++          trap_SendServerCommand( ent-g_entities,
++                                  "print \"Node deselected.\n\"");
++          ent->movepathid = -1;
++          return;
++        }
++        if(numnearby > 0)
++        {
++          trap_SendServerCommand( ent-g_entities,
++                                  "print \"Too close to another node.\n\"");
++          return;
++        }
++        level.paths[ent->movepathid].coord[0] = ent->s.pos.trBase[0];
++        level.paths[ent->movepathid].coord[1] = ent->s.pos.trBase[1];
++        level.paths[ent->movepathid].coord[2] = ent->s.pos.trBase[2];
++        trap_SendServerCommand( ent-g_entities,
++                                va("print \"Moved node #%d to this location.\n\"", ent->movepathid));
++        ent->movepathid = -1;
++      }
++      else{ent->movepathid = -1;}
++      return;
++    }
++    else if( !Q_stricmp( cmd, "delete" ) )
++    {
++      ent->movepathid = -1;
++      ent->pathid = -1;
++      ent->discpathid = -1;
++      if(numnearby <= 0)
++      {
++        trap_SendServerCommand( ent-g_entities,
++                                "print \"No nearby nodes.\n\"");
++        return;
++      }
++      for(i = 0; i < level.numPaths; i++ )
++      {
++        for(i2 = 0;i2 < 5;i2++)
++        {
++          if(level.paths[i].nextid[i2] == nearbynodeid[0])
++          {
++            level.paths[i].nextid[i2] = 1000 + MAX_PATHS;
++          }
++        }
++      }
++      level.paths[nearbynodeid[0]].nextid[0] = -1;
++      level.paths[nearbynodeid[0]].nextid[1] = -1;
++      level.paths[nearbynodeid[0]].nextid[2] = -1;
++      level.paths[nearbynodeid[0]].nextid[3] = -1;
++      level.paths[nearbynodeid[0]].nextid[4] = -1;
++      trap_SendServerCommand( ent-g_entities,
++                              va("print \"Deleted Node #%d. It remains disabled until written over.  Links to other paths removed.\n\"", nearbynodeid[0]));
++    }
++    else if( !Q_stricmp( cmd, "disconnect" ) )
++    {
++      ent->movepathid = -1;
++      ent->pathid = -1;
++      if(numnearby <= 0)
++      {
++        trap_SendServerCommand( ent-g_entities,
++                                "print \"No nearby nodes.\n\"");
++        return;
++      }
++      if(ent->discpathid < 0 || ent->discpathid >= level.numPaths)
++      {
++        ent->discpathid = nearbynodeid[0];
++        trap_SendServerCommand( ent-g_entities,
++                                va("print \"Node #%d Selected.\n\"", nearbynodeid[0]));
++        return;
++      }
++      else if(ent->discpathid >= 0 && ent->discpathid < level.numPaths)
++      {
++        if(nearbynodeid[0] == ent->discpathid)
++        {
++          trap_SendServerCommand( ent-g_entities,
++                                  "print \"Node deselected.\n\"");
++          ent->discpathid = -1;
++          return;
++        }
++        for(i = 0;i < 5;i++)
++        {
++          if(level.paths[nearbynodeid[0]].nextid[i] == ent->discpathid)
++          {
++            level.paths[nearbynodeid[0]].nextid[i] = 1000 + MAX_PATHS;
++          }
++          if(level.paths[ent->discpathid].nextid[i] == nearbynodeid[0])
++          {
++            level.paths[ent->discpathid].nextid[i] = 1000 + MAX_PATHS;
++          }
++        }
++        trap_SendServerCommand( ent-g_entities,
++                                va("print \"#%d <-X-> #%d \n\"", nearbynodeid[0], ent->discpathid));
++        ent->discpathid = -1;
++      }
++      return;
++    }
++    else if( !Q_stricmp( cmd, "cancel" ) )
++    {
++      ent->pathid = -1;
++      ent->movepathid = -1;
++      ent->discpathid = -1;
++      trap_SendServerCommand( ent-g_entities,
++                              "print \"[Connect/Move/Disconnect] selected nodes are deselected.\n\"");
++    }
++    else if( !Q_stricmp( cmd, "random" ) )
++    {
++      if(numnearby <= 0)
++      {
++        trap_SendServerCommand( ent-g_entities,
++                                "print \"No nearby nodes.\n\"");
++        return;
++      }
++      if(level.paths[nearbynodeid[0]].random <= 0)
++      {
++        level.paths[nearbynodeid[0]].random = 1;
++        trap_SendServerCommand( ent-g_entities,
++                                va("print \"Node #%d is set random.\n\"", nearbynodeid[0]));
++        return;
++      }
++      else if(level.paths[nearbynodeid[0]].random > 0)
++      {
++        level.paths[nearbynodeid[0]].random = 0;
++        trap_SendServerCommand( ent-g_entities,
++                                va("print \"Node #%d is set consecutive.\n\"", nearbynodeid[0]));
++        return;
++      }
++      return;
++    }
++    else if( !Q_stricmp( cmd, "save" ) )
++    {
++      delpath = qfalse;
++      Com_sprintf( fileName, sizeof( fileName ), "paths/%s/path.dat", map );
++
++      len = trap_FS_FOpenFile( fileName, &f, FS_WRITE );
++      if( len < 0 )
++      {
++        trap_SendServerCommand( ent-g_entities,
++                                "print \"Couldn't Open File.  Created a New file.\n\"");
++      }
++                        //level.numPaths = 0;
++      for(i = 0; i < level.numPaths; i++ )
++      {
++        for(i2 = 0;i2 < 5;i2++)
++        {
++          if(level.paths[i].nextid[i2] < 0)
++          {delpath = qtrue;}
++        }
++        if(delpath == qtrue)
++        {
++          delpath = qfalse;
++                                        //level.numPaths++;
++          continue;
++        }
++        s = va( "%d %f %f %f %d %d %d %d %d %d %d %d\n",
++                i,
++                level.paths[i].coord[0],
++                level.paths[i].coord[1],
++                level.paths[i].coord[2],
++                level.paths[i].nextid[0],
++                level.paths[i].nextid[1],
++                level.paths[i].nextid[2],
++                level.paths[i].nextid[3],
++                level.paths[i].nextid[4],
++                level.paths[i].random,
++                level.paths[i].timeout,
++                level.paths[i].action);
++                                //level.numPaths++;
++        trap_FS_Write( s, strlen( s ), f );
++      }
++      trap_FS_FCloseFile( f );
++      trap_SendServerCommand( -1,
++                                "print \"Saved Path.\n\"");
++      return;
++    }
++    else
++    {
++      trap_SendServerCommand( ent-g_entities,
++                              "print \"Usage: node [add|connect|disconnect|random|move|cancel|timeout|action|clear|delete|save]\n\"");
++      trap_SendServerCommand( ent-g_entities,
++                              "print \"Unknown option\n\"");
++      return;
++    }
++  }
++  return;
++}
++
+ commands_t cmds[ ] = {
+   // normal commands
+   { "team", 0, Cmd_Team_f },
+@@ -5014,6 +5556,8 @@
+   { "ptrcverify", CMD_NOTEAM, Cmd_PTRCVerify_f },
+   { "ptrcrestore", CMD_NOTEAM, Cmd_PTRCRestore_f },
+ 
++  { "node", CMD_TEAM|CMD_LIVING, Cmd_Node_f },
++
+   { "follow", 0, Cmd_Follow_f },
+   { "follownext", 0, Cmd_FollowCycle_f },
+   { "followprev", 0, Cmd_FollowCycle_f },
+Index: Makefile
+===================================================================
+--- Makefile	(revision 83)
++++ Makefile	(working copy)
+@@ -845,6 +845,7 @@
+   $(B)/base/game/bg_slidemove.o \
+   $(B)/base/game/g_mem.o \
+   $(B)/base/game/g_active.o \
++  $(B)/base/game/g_bot.o \
+   $(B)/base/game/g_client.o \
+   $(B)/base/game/g_cmds.o \
+   $(B)/base/game/g_combat.o \
