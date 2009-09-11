@@ -1,0 +1,397 @@
+Index: src/game/g_local.h
+===================================================================
+--- src/game/g_local.h	(revision 83)
++++ src/game/g_local.h	(working copy)
+@@ -87,6 +87,19 @@
+ 
+ #define SP_PODIUM_MODEL   "models/mapobjects/podium/podium4.md3"
+ 
++typedef enum
++{
++  BOT_REGULAR = 1,
++  BOT_IDLE,
++  BOT_ATTACK,
++  BOT_STAND_GROUND,
++  BOT_DEFENSIVE,
++  BOT_FOLLOW_FRIEND_PROTECT,
++  BOT_FOLLOW_FRIEND_ATTACK,
++  BOT_FOLLOW_FRIEND_IDLE,
++  BOT_TEAM_KILLER
++} botCommand_t;
++
+ //============================================================================
+ 
+ struct gentity_s
+@@ -200,6 +213,16 @@
+ 
+   int               noise_index;
+ 
++  //for targeting following
++  botCommand_t		botCommand;
++  gentity_t         *botEnemy;
++  gentity_t         *botFriend;
++  int				botFriendLastSeen;  
++  int				botEnemyLastSeen;
++  int				botSkillLevel;
++  int				botTeam;
++
++
+   // timing variables
+   float             wait;
+   float             random;
+@@ -842,7 +865,21 @@
+ void      G_SpawnEntitiesFromString( void );
+ char      *G_NewString( const char *string );
+ 
++// g_bot.c
+ //
++void G_BotAdd( char *name, int team, int skill );
++void G_BotDel( int clientNum );
++void G_BotCmd( gentity_t *master, int clientNum, char *command );
++void G_BotThink( gentity_t *self );
++void G_BotSpectatorThink( gentity_t *self );
++// todo: are these suppose to be out here?!
++qboolean botAimAtTarget( gentity_t *self, gentity_t *target );
++int botFindClosestEnemy( gentity_t *self, qboolean includeTeam );
++qboolean botTargetInRange( gentity_t *self, gentity_t *target );
++int botGetDistanceBetweenPlayer( gentity_t *self, gentity_t *player );
++qboolean botShootIfTargetInRange( gentity_t *self, gentity_t *target );
++
++//
+ // g_cmds.c
+ //
+ void      Cmd_Score_f( gentity_t *ent );
+@@ -1475,6 +1512,8 @@
+ extern  vmCvar_t  mod_jetpackConsume;
+ extern  vmCvar_t  mod_jetpackRegen;
+ 
++extern  vmCvar_t  g_bot_attackbuildables;
++
+ extern  vmCvar_t  g_adminExpireTime;
+ 
+ extern  vmCvar_t  g_autoGhost;
+Index: src/game/g_active.c
+===================================================================
+--- src/game/g_active.c	(revision 83)
++++ src/game/g_active.c	(working copy)
+@@ -388,6 +388,13 @@
+   client->oldbuttons = client->buttons;
+   client->buttons = ucmd->buttons;
+ 
++
++   //if bot
++   if( ent->r.svFlags & SVF_BOT ) {
++     G_BotSpectatorThink( ent );
++     return;
++   }
++
+    attack1 = ( ( client->buttons & BUTTON_ATTACK ) &&
+                !( client->oldbuttons & BUTTON_ATTACK ) );
+    attack3 = ( ( client->buttons & BUTTON_USE_HOLDABLE ) &&
+@@ -597,6 +604,10 @@
+ 
+   while ( client->time100 >= 100 )
+   {
++    if( ent->r.svFlags & SVF_BOT ) {
++      G_BotThink( ent );
++    }
++
+     client->time100 -= 100;
+ 
+     //if not trying to run then not trying to sprint
+@@ -1893,14 +1904,14 @@
+   // phone jack if they don't get any for a while
+   ent->client->lastCmdTime = level.time;
+ 
+-  if( !g_synchronousClients.integer )
++  if(  !( ent->r.svFlags & SVF_BOT ) && !g_synchronousClients.integer )
+     ClientThink_real( ent );
+ }
+ 
+ 
+ void G_RunClient( gentity_t *ent )
+ {
+-  if( !g_synchronousClients.integer )
++  if(  !( ent->r.svFlags & SVF_BOT ) && !g_synchronousClients.integer )
+     return;
+ 
+   ent->client->pers.cmd.serverTime = level.time;
+Index: src/game/g_public.h
+===================================================================
+--- src/game/g_public.h	(revision 83)
++++ src/game/g_public.h	(working copy)
+@@ -35,6 +35,7 @@
+ // https://zerowing.idsoftware.com/bugzilla/show_bug.cgi?id=551
+ #define SVF_CLIENTMASK 0x00000002
+ 
++#define SVF_BOT                 0x00000008  // set if the entity is a bot
+ #define SVF_BROADCAST           0x00000020  // send to all connected clients
+ #define SVF_PORTAL              0x00000040  // merge a second pvs at origin2 into snapshots
+ #define SVF_USE_CURRENT_ORIGIN  0x00000080  // entity->r.currentOrigin instead of entity->s.origin
+Index: src/game/g_main.c
+===================================================================
+--- src/game/g_main.c	(revision 83)
++++ src/game/g_main.c	(working copy)
+@@ -220,11 +220,12 @@
+ vmCvar_t  g_welcomeMsg;
+ vmCvar_t  g_welcomeMsgTime;
+ 
+-
+ vmCvar_t  mod_jetpackFuel;
+ vmCvar_t  mod_jetpackConsume;
+ vmCvar_t  mod_jetpackRegen;
+ 
++vmCvar_t  g_bot_attackbuildables;
++
+ vmCvar_t  g_adminExpireTime;
+ 
+ vmCvar_t  g_autoGhost;
+@@ -441,6 +442,8 @@
+   { &mod_jetpackConsume, "mod_jetpackConsume", "2", CVAR_ARCHIVE, 0, qfalse  },
+   { &mod_jetpackRegen, "mod_jetpackRegen", "3", CVAR_ARCHIVE, 0, qfalse  },
+ 
++  { &g_bot_attackbuildables, "g_bot_attackbuildables", "1", CVAR_ARCHIVE, 0, qfalse },
++
+   { &g_teamKillThreshold, "g_teamKillThreshold", "0", CVAR_ARCHIVE, 0, qfalse  },
+ 
+   { &g_aimbotAdvertBan, "g_aimbotAdvertBan", "0", CVAR_ARCHIVE, 0, qfalse  },
+Index: src/game/g_admin.c
+===================================================================
+--- src/game/g_admin.c	(revision 83)
++++ src/game/g_admin.c	(working copy)
+@@ -66,7 +66,7 @@
+       "restore a player's ability to use a weapon or class",
+       "[^3name|slot#^7] [^3class|weapon|all^7]"
+     },
+-    
++
+     {"allready", G_admin_allready, "allready",
+       "makes everyone ready in intermission",
+       ""
+@@ -80,6 +80,16 @@
+       "[^3name|slot#|IP^7] (^5time^7) (^5reason^7)"
+     },
+ 
++    {"bot", G_admin_bot, "bot",
++      "Add or delete bot(s)",
++      "[^3add/del^7] [name] [^5aliens/humans^7] (skill)"
++    },
++
++    {"botcmd", G_admin_botcmd, "bot",
++      "Change bot behavior.",
++      "[^3name^7] [^5regular/idle/attack/standground/defensive/followprotect/followattack/followidle/teamkill^7]"
++    },
++
+     {"buildlog", G_admin_buildlog, "buildlog",
+       "display a list of recent builds and deconstructs, optionally specifying"
+       " a team",
+@@ -2645,6 +2655,132 @@
+   return qtrue;
+ }
+ 
++qboolean G_admin_bot( gentity_t *ent, int skiparg ) {
++	// add [name] (team) (skill)
++	// del [name]
++	int minargc;
++	
++	char command[10];
++	char name[ MAX_NAME_LENGTH ];
++	char name_s[ MAX_NAME_LENGTH ];
++	//char name2[ MAX_NAME_LENGTH ];
++	char name2_s[ MAX_NAME_LENGTH ];
++	char team[10];
++	int team_int;
++	char skill[2];
++	int skill_int;
++	qboolean success = qfalse;
++	int i, j;
++	
++	//char s2[ MAX_NAME_LENGTH ];
++	//char n2[ MAX_NAME_LENGTH ];
++	//int logmatch = -1, logmatches = 0;
++	//int i, j;
++	//qboolean exactmatch = qfalse;
++	
++	minargc = 3 + skiparg;
++	if( G_SayArgc() < minargc )	{
++		ADMP( "^7Please have at least command and name.\n" );
++		ADMP( "^3!bot: ^7usage: !bot [add/del] [name] (team) (skill)\n" );
++		return qfalse;
++	}
++
++	G_SayArgv( 1 + skiparg, command, sizeof( command ) );
++	G_SayArgv( 2 + skiparg, name, sizeof( name ) );
++	G_SanitiseString( name, name_s, sizeof( name_s ) );
++	
++	if(!Q_stricmp(command,"add")) {
++		// add [name] [team] (skill)
++		minargc = 4 + skiparg;
++		if( G_SayArgc() < minargc )	{
++			ADMP( "^7Please have at least name and team.\n" );
++			ADMP( "^3!bot: ^7usage: !bot [add/del] [name] [humans/aliens] (skill)\n" );
++			return qfalse;
++		}
++		
++		G_SayArgv( 3 + skiparg, team, sizeof( team ) );
++		
++		if(!Q_stricmp(team,"humans")) {
++			team_int = PTE_HUMANS;
++		} else if(!Q_stricmp(team,"aliens")) {
++			team_int = PTE_ALIENS;
++		} else {
++			ADMP( "^7Invalid bot team.\n" );
++			ADMP( "^3!bot: ^7usage: !bot add [name] [humans/aliens] (skill)\n" );
++			return qfalse;
++		}
++		
++		minargc = 5 + skiparg;
++		if(G_SayArgc() < minargc) {
++			skill_int = 0;
++		} else {
++			G_SayArgv( 4 + skiparg, skill, sizeof( skill ) );
++			skill_int = atoi(skill);
++		}
++		
++		// got name, team_int and skill_int
++		G_BotAdd(name, team_int, skill_int);
++		return qtrue;
++	} else if(!Q_stricmp(command,"del")) {
++		// del [name]
++		success = qfalse;
++		for( i = 0; i < MAX_ADMIN_NAMELOGS && g_admin_namelog[ i ];i++ ) {
++			if( g_admin_namelog[ i ]->slot >= 0 ) {
++				for( j = 0; j < MAX_ADMIN_NAMELOG_NAMES && g_admin_namelog[ i ]->name[ j ][ 0 ]; j++ ) {
++					G_SanitiseString(g_admin_namelog[ i ]->name[ j ], name2_s, sizeof( name2_s ) );
++					if( strstr( name2_s, name_s ) ) {
++						G_BotDel(g_admin_namelog[ i ]->slot);
++						success = qtrue;
++					}
++				}
++			}
++		}
++		
++		return success;
++		//ADMP( "delete not implemented yet\n" );
++		//return qfalse;
++	}
++	
++	ADMP( "^3!bot: ^7usage: !bot [add/del] [name] (team) (skill)\n" );
++	return qfalse;
++}
++
++qboolean G_admin_botcmd( gentity_t *ent, int skiparg ) {
++	int minargc;
++	char name[ MAX_NAME_LENGTH ];
++	char name_s[ MAX_NAME_LENGTH ];
++	char name2_s[ MAX_NAME_LENGTH ];
++	char command[ 32 ];
++	int i, j;
++	qboolean success = qfalse;
++	
++	//[botname] [command]
++	minargc = 3 + skiparg;
++	if( G_SayArgc() < minargc )	{
++		ADMP( "^3!botcmd: ^7usage: !botcmd [botname] [command]\n" );
++		return qfalse;
++	}
++	
++	G_SayArgv( 1 + skiparg, name, sizeof( name ) );
++	G_SayArgv( 2 + skiparg, command, sizeof( command ) );
++	G_SanitiseString( name, name_s, sizeof( name_s ) );
++	
++	success = qfalse;
++	for( i = 0; i < MAX_ADMIN_NAMELOGS && g_admin_namelog[ i ];i++ ) {
++		if( g_admin_namelog[ i ]->slot >= 0 ) {
++			for( j = 0; j < MAX_ADMIN_NAMELOG_NAMES && g_admin_namelog[ i ]->name[ j ][ 0 ]; j++ ) {
++				G_SanitiseString(g_admin_namelog[ i ]->name[ j ], name2_s, sizeof( name2_s ) );
++				if( strstr( name2_s, name_s ) ) {
++					G_BotCmd(ent, g_admin_namelog[ i ]->slot,command);
++					success = qtrue;
++				}
++			}
++		}
++	}
++	
++	return success;
++}
++
+ qboolean G_admin_ban( gentity_t *ent, int skiparg )
+ {
+   int seconds;
+Index: src/game/g_admin.h
+===================================================================
+--- src/game/g_admin.h	(revision 83)
++++ src/game/g_admin.h	(working copy)
+@@ -199,6 +199,8 @@
+ void G_admin_seen_update( char *guid );
+ 
+ // ! command functions
++qboolean G_admin_bot( gentity_t *ent, int skiparg );
++qboolean G_admin_botcmd( gentity_t *ent, int skiparg );
+ qboolean G_admin_time( gentity_t *ent, int skiparg );
+ qboolean G_admin_setlevel( gentity_t *ent, int skiparg );
+ qboolean G_admin_flaglist( gentity_t *ent, int skiparg );
+Index: src/game/g_cmds.c
+===================================================================
+--- src/game/g_cmds.c	(revision 83)
++++ src/game/g_cmds.c	(working copy)
+@@ -1659,6 +1659,8 @@
+  
+   if( !Q_stricmp( arg1, "kick" ) )
+   {
++    gentity_t *bot;
++
+     if( G_admin_permission( &g_entities[ clientNum ], ADMF_IMMUNITY ) )
+     {
+       trap_SendServerCommand( ent-g_entities,
+@@ -1668,6 +1670,15 @@
+       return;
+     }
+ 
++
++    bot = &g_entities[ clientNum ];
++    if( ( bot->r.svFlags & SVF_BOT ) )
++    {
++      trap_SendServerCommand( ent-g_entities,
++           "print \"callvote: you can't kick bots\n\"" );
++      return;
++     }
++
+     // use ip in case this player disconnects before the vote ends
+     Com_sprintf( level.voteString, sizeof( level.voteString ),
+       "!ban %s \"%s\" vote kick", level.clients[ clientNum ].pers.ip,
+@@ -2302,6 +2313,8 @@
+ 
+   if( !Q_stricmp( arg1, "kick" ) )
+   {
++    gentity_t *bot;
++
+     if( G_admin_permission( &g_entities[ clientNum ], ADMF_IMMUNITY ) )
+     {
+       trap_SendServerCommand( ent-g_entities,
+@@ -2311,6 +2324,13 @@
+       return;
+     }
+ 
++    bot = &g_entities[ clientNum ];
++    if( ( bot->r.svFlags & SVF_BOT ) )
++    {
++      trap_SendServerCommand( ent-g_entities,
++           "print \"callvote: you can't kick bots\n\"" );
++      return;
++     }
+ 
+     // use ip in case this player disconnects before the vote ends
+     Com_sprintf( level.teamVoteString[ cs_offset ],
+Index: Makefile
+===================================================================
+--- Makefile	(revision 83)
++++ Makefile	(working copy)
+@@ -864,6 +864,7 @@
+   $(B)/base/game/g_ptr.o \
+   $(B)/base/game/g_weapon.o \
+   $(B)/base/game/g_admin.o \
++  $(B)/base/game/g_bot.o \
+   \
+   $(B)/base/qcommon/q_math.o \
+   $(B)/base/qcommon/q_shared.o
