@@ -1,41 +1,8 @@
-Index: src/game/g_local.h
-===================================================================
---- src/game/g_local.h	(revision 67)
-+++ src/game/g_local.h	(working copy)
-@@ -1426,6 +1426,15 @@
- 
- extern  vmCvar_t  g_hiddenClients;
- 
-+extern  vmCvar_t  g_invasion;
-+extern  vmCvar_t  g_invasionStartTime;
-+extern  vmCvar_t  g_invasionLayout;
-+extern  vmCvar_t  g_invasionCurrentLayout;
-+extern  vmCvar_t  g_invasionBotNumber;
-+extern  vmCvar_t  g_invasionBotMin;
-+extern  vmCvar_t  g_invasionBotMax;
-+extern  vmCvar_t  g_invasionBotPrefix;
-+
- extern  vmCvar_t  g_dretchPunt;
- 
- extern  vmCvar_t  g_devmapNoGod;
-Index: src/game/g_combat.c
-===================================================================
---- src/game/g_combat.c	(revision 67)
-+++ src/game/g_combat.c	(working copy)
-@@ -1319,7 +1319,7 @@
-          else if(g_friendlyFireMovementAttacks.value > 0 && g_friendlyFireMovementAttacks.value < 1)
-            damage =(int)(0.5 + g_friendlyFireMovementAttacks.value * (float) damage);
-       }
--      if( g_friendlyBuildableFire.value <= 0 )
-+      if( g_friendlyBuildableFire.value <= 0 || g_invasion.integer )
-       {
-         return;
-       }
 Index: src/game/g_active.c
 ===================================================================
 --- src/game/g_active.c	(revision 67)
 +++ src/game/g_active.c	(working copy)
-@@ -565,6 +565,7 @@
+@@ -570,6 +570,7 @@
  */
  void ClientTimerActions( gentity_t *ent, int msec )
  {
@@ -43,7 +10,7 @@ Index: src/game/g_active.c
    gclient_t *client;
    usercmd_t *ucmd;
    int       aForward, aRight;
-@@ -807,6 +808,24 @@
+@@ -845,6 +846,24 @@
    {
      client->time1000 -= 1000;
  
@@ -68,250 +35,11 @@ Index: src/game/g_active.c
      //client is poison clouded
      if( client->ps.stats[ STAT_STATE ] & SS_POISONCLOUDED )
        G_Damage( ent, client->lastPoisonCloudedClient, client->lastPoisonCloudedClient, NULL, NULL,
-Index: src/game/g_buildable.c
-===================================================================
---- src/game/g_buildable.c	(revision 67)
-+++ src/game/g_buildable.c	(working copy)
-@@ -1962,7 +1962,8 @@
- 
-         if( player->client && player->client->ps.stats[ STAT_PTEAM ] == PTE_HUMANS )
-         {
--          if( player->health < player->client->ps.stats[ STAT_MAX_HEALTH ] &&
-+          if( ( player->health < player->client->ps.stats[ STAT_MAX_HEALTH ] ||
-+            ( player->client->ps.stats[ STAT_STAMINA ] < MAX_STAMINA && g_invasion.integer ) ) &&
-               player->client->ps.pm_type != PM_DEAD )
-           {
-             self->enemy = player;
-@@ -1998,6 +1999,19 @@
- 
-       self->enemy->health++;
- 
-+      if (g_invasion.integer) {
-+        if (self->enemy->health < self->enemy->client->ps.stats[ STAT_MAX_HEALTH ]) 
-+          self->enemy->health+=4;
-+        if (self->enemy->client->ps.stats[ STAT_STAMINA ] < MAX_STAMINA)
-+          self->enemy->client->ps.stats[ STAT_STAMINA ] += 100;
-+      }
-+
-+      //if hp > MAX or stamina > MAX
-+      if (self->enemy->health >= self->enemy->client->ps.stats[ STAT_MAX_HEALTH ]) 
-+        self->enemy->health = self->enemy->client->ps.stats[ STAT_MAX_HEALTH ];
-+      if (self->enemy->client->ps.stats[ STAT_STAMINA ] > MAX_STAMINA)
-+        self->enemy->client->ps.stats[ STAT_STAMINA ] = MAX_STAMINA;
-+
-       //if they're completely healed, give them a medkit
-       if( self->enemy->health >= self->enemy->client->ps.stats[ STAT_MAX_HEALTH ] &&
-           !BG_InventoryContainsUpgrade( UP_MEDKIT, self->enemy->client->ps.stats ) )
-Index: src/game/g_main.c
-===================================================================
---- src/game/g_main.c	(revision 67)
-+++ src/game/g_main.c	(working copy)
-@@ -23,7 +23,8 @@
- 
- #include "g_local.h"
- 
--#define QVM_NAME       "Slackers QVM" " (Lakitu7 5.5)"
-+#define QVM_NAME       "Slackers QVM" QVM_MODNAME " (Lakitu7 5.5)"
-+#define QVM_MODNAME    " (Invasion 2.1)"
- #define QVM_VERSIONNUM      "1.0+"
- 
- level_locals_t  level;
-@@ -185,6 +186,15 @@
- 
- vmCvar_t  g_hiddenClients;
- 
-+vmCvar_t  g_invasion;
-+vmCvar_t  g_invasionStartTime;
-+vmCvar_t  g_invasionLayout;
-+vmCvar_t  g_invasionCurrentLayout;
-+vmCvar_t  g_invasionBotNumber;
-+vmCvar_t  g_invasionBotMin;
-+vmCvar_t  g_invasionBotMax;
-+vmCvar_t  g_invasionBotPrefix;
-+
- vmCvar_t  g_dretchPunt;
- 
- vmCvar_t  g_allowShare;
-@@ -398,6 +408,15 @@
-   
-   { &g_hiddenClients, "g_hiddenClients", "0", CVAR_ARCHIVE | CVAR_SERVERINFO, 0, qfalse },
-   
-+  { &g_invasion, "g_invasion", "0", CVAR_ROM, 0, qfalse  },
-+  { &g_invasionStartTime, "g_invasionStartTime", "60", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qfalse  },
-+  { &g_invasionLayout, "g_invasionLayout", "invasion", CVAR_ARCHIVE, 0, qfalse  },
-+  { &g_invasionCurrentLayout, "g_invasionCurrentLayout", "", CVAR_SERVERINFO | CVAR_ROM, 0, qfalse  },
-+  { &g_invasionBotNumber, "g_invasionBotNumber", "", CVAR_ROM, 0, qfalse  },
-+  { &g_invasionBotMin, "g_invasionBotMin", "4", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qfalse  },
-+  { &g_invasionBotMax, "g_invasionBotMax", "12", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qfalse  },
-+  { &g_invasionBotPrefix, "g_invasionBotPrefix", "", CVAR_ROM, 0, qfalse  },
-+  
-   { &g_dretchPunt, "g_dretchPunt", "1", CVAR_ARCHIVE, 0, qfalse  },
-   
-   { &g_msg, "g_msg", "", CVAR_ARCHIVE, 0, qfalse  },
-@@ -834,6 +853,20 @@
-     level.humanTeamLocked=qtrue;
-     trap_Cvar_Set( "g_lockTeamsAtStart", "0" );
-   }
-+
-+  //Load invasion OR Reset invasion var
-+  if( (level.alienTeamLocked == qtrue) && (level.humanTeamLocked == qtrue) && (g_invasion.integer) &&
-+    !Q_strncmp( level.layout, Q_strlwr(g_invasionLayout.string), strlen(g_invasionLayout.string) ) )
-+  {
-+    level.humanTeamLocked = qfalse;
-+    if( g_invasionStartTime.integer > 0 )
-+      trap_SendServerCommand( -1, va( "cp \"^1Don't leave your base before %isec !\n\"", g_invasionStartTime.integer ) );
-+  }
-+  else
-+  {
-+    trap_Cvar_Set( "g_invasion", 0);
-+    trap_Cvar_Set( "g_invasionCurrentLayout" , "" );
-+  }
- }
- 
- /*
-@@ -1224,7 +1257,10 @@
- {
-   int i;
-   gentity_t *ent;
-+  char message[ MAX_STRING_CHARS ];
-+  int lastNumAliensSpawns;
- 
-+  lastNumAliensSpawns = level.numAlienSpawns;
-   level.numAlienSpawns = 0;
-   level.numHumanSpawns = 0;
- 
-@@ -1243,6 +1279,20 @@
-   //let the client know how many spawns there are
-   trap_SetConfigstring( CS_SPAWNS, va( "%d %d",
-         level.numAlienSpawns, level.numHumanSpawns ) );
-+
-+ //display how many eggs there are for the scenario Invasion
-+  if( ( lastNumAliensSpawns > level.numAlienSpawns ) &&
-+      ( lastNumAliensSpawns >= 0 ) && g_invasion.integer )
-+  {
-+    if( level.numAlienSpawns == 0 )
-+      Com_sprintf( message, sizeof( message ), "^1No egg left... Kill all aliens to finish\n" );
-+    else if( level.numAlienSpawns == 1 )
-+      Com_sprintf( message, sizeof( message ), "^3Just 1 egg left... you can do it !!!\n" );
-+    else
-+      Com_sprintf( message, sizeof( message ), "^2%i eggs left\n", level.numAlienSpawns );
-+    trap_SendServerCommand( -1, va( "cp \"%s\"", message ) );
-+    trap_SendServerCommand( -1, va( "print \"^7CP: %s", message ) );
-+  }
- }
- 
- /*
-@@ -2295,6 +2345,13 @@
-     return;
-   }
- 
-+  // if scenario Invasion, go now
-+  if( g_invasion.integer )
-+  {
-+    ExitLevel( );
-+    return;
-+  }
-+
-   // if nobody wants to go, clear timer
-   if( !ready && numPlayers )
-   {
-@@ -2361,6 +2418,8 @@
- */
- void CheckExitRules( void )
- {
-+  char map[ MAX_QPATH ];
-+  trap_Cvar_VariableStringBuffer( "mapname", map, sizeof( map ) );
-   // if at the intermission, wait for all non-bots to
-   // signal ready, then go to next level
-   if( level.intermissiontime )
-@@ -2412,7 +2471,12 @@
-   {
-     //humans win
-     level.lastWin = PTE_HUMANS;
--    trap_SendServerCommand( -1, "print \"Humans win\n\"");
-+    if (g_invasion.integer)
-+      trap_SendServerCommand( -1, va( "print \"\n^3Congratulations !\n^7Humans stopped the "
-+        "invasion of ^2%i^7 aliens on the layout ^2%s^7 of the planet ^2%s^7.\n\"",
-+        g_invasionBotNumber.integer, g_invasionCurrentLayout.string, map ) );
-+    else
-+      trap_SendServerCommand( -1, "print \"Humans win\n\"");
-     trap_SetConfigstring( CS_WINNER, "Humans Win" );
-     LogExit( "Humans win." );
-     G_admin_maplog_result( "h" );
-@@ -2424,7 +2488,12 @@
-   {
-     //aliens win
-     level.lastWin = PTE_ALIENS;
--    trap_SendServerCommand( -1, "print \"Aliens win\n\"");
-+    if (g_invasion.integer)
-+      trap_SendServerCommand( -1, va( "print \"\nThe layout ^2%s"
-+        "^7 of the planet ^2%s^7 has been destroyed by an invasion of ^2%i^7 aliens.\n\"",
-+        g_invasionCurrentLayout.string, map, g_invasionBotNumber.integer) );
-+    else
-+      trap_SendServerCommand( -1, "print \"Aliens win\n\"");
-     trap_SetConfigstring( CS_WINNER, "Aliens Win" );
-     LogExit( "Aliens win." );
-     G_admin_maplog_result( "a" );
-@@ -2797,6 +2866,42 @@
- }
- 
- /*
-+==================
-+CheckInvasionBots
-+
-+Check if it's time to add Bots for Invasion
-+==================
-+*/
-+void CheckInvasionBots( void )
-+{
-+  static int invasionBotNumber = 0;
-+
-+  //wait 5 seconds before adding 1 bot and add 1 bot each 0,5 second
-+  if( g_invasion.integer && ( invasionBotNumber < g_invasionBotNumber.integer ) &&
-+    ( ( level.time - level.startTime ) >= ( ( 5 * 1000 ) + ( 500 * invasionBotNumber ) ) ) )
-+  {
-+    char invasionBotName[ MAX_NAME_LENGTH ];
-+    invasionBotNumber++;
-+    Q_strncpyz( invasionBotName, va( "%s%02i", g_invasionBotPrefix.string, invasionBotNumber ), sizeof( invasionBotName ) );
-+    trap_SendConsoleCommand( EXEC_APPEND,va( "!bot add %s aliens 5\n", invasionBotName ) );
-+  }
-+}
-+
-+/*
-+==================
-+CheckInvasionStart
-+
-+Check if it's time to start Invasion
-+==================
-+*/
-+void CheckInvasionStart( void )
-+{
-+  if( ( g_invasionStartTime.integer > 0 ) && g_invasion.integer && (level.numHumanSpawns != 0) &&
-+    ( ( level.time - level.startTime ) >= ( g_invasionStartTime.integer * 1000 ) ) )
-+    trap_SendConsoleCommand( EXEC_APPEND, "!invasion start\n" );
-+}
-+
-+/*
- ================
- G_RunFrame
- 
-@@ -2964,6 +3069,11 @@
-   CheckTeamVote( PTE_HUMANS );
-   CheckTeamVote( PTE_ALIENS );
- 
-+  // check invasion Add Bots
-+  CheckInvasionBots( );
-+  // check invasion Start
-+  CheckInvasionStart( );
-+
-   // for tracking changes
-   CheckCvars( );
- 
 Index: src/game/g_admin.c
 ===================================================================
 --- src/game/g_admin.c	(revision 67)
 +++ src/game/g_admin.c	(working copy)
-@@ -148,7 +148,18 @@
+@@ -158,7 +158,18 @@
        "display the contents of server info files",
        "(^5subject^7)"
      },
@@ -330,8 +58,8 @@ Index: src/game/g_admin.c
 +
      {"invisible", G_admin_invisible, "invisible",
        "hides a player so they cannot be seen in playerlists",
-       "[^3+|-^7](^5slot#^7)"
-@@ -3153,6 +3178,12 @@
+       ""
+@@ -3274,6 +3285,12 @@
      return qfalse;
    }
  
@@ -344,7 +72,7 @@ Index: src/game/g_admin.c
    switch( team[ 0 ] )
    {
    case 'a':
-@@ -3623,7 +3661,7 @@
+@@ -3744,7 +3761,7 @@
    }
  
    G_SayArgv( skiparg + 1, map, sizeof( map ) );
@@ -353,7 +81,7 @@ Index: src/game/g_admin.c
    if( !trap_FS_FOpenFile( va( "maps/%s.bsp", map ), NULL, FS_READ ) )
    {
      ADMP( va( "^3!map: ^7invalid map name '%s'\n", map ) );
-@@ -3633,6 +3671,8 @@
+@@ -3754,6 +3771,8 @@
    if( G_SayArgc( ) > 2 + skiparg )
    {
      G_SayArgv( skiparg + 2, layout, sizeof( layout ) );
@@ -362,7 +90,7 @@ Index: src/game/g_admin.c
      if( !Q_stricmp( layout, "*BUILTIN*" ) ||
        trap_FS_FOpenFile( va( "layouts/%s/%s.dat", map, layout ),
          NULL, FS_READ ) > 0 )
-@@ -3891,7 +3931,7 @@
+@@ -4012,7 +4031,7 @@
    }
  
    G_SayArgv( skiparg + 1, layout, sizeof( layout ) );
@@ -371,7 +99,7 @@ Index: src/game/g_admin.c
    trap_SendConsoleCommand( EXEC_APPEND, va( "layoutsave %s", layout ) );
    AP( va( "print \"^3!layoutsave: ^7layout saved as '%s' by %s\n\"", layout,
            ( ent ) ? G_admin_adminPrintName( ent ) : "console" ) );
-@@ -4415,6 +4455,7 @@
+@@ -4536,6 +4555,7 @@
      G_SayArgv( 1 +skiparg, map, sizeof( map ) );
    else
      trap_Cvar_VariableStringBuffer( "mapname", map, sizeof( map ) );
@@ -379,7 +107,7 @@ Index: src/game/g_admin.c
    
    count = G_LayoutList( map, list, sizeof( list ) );
    ADMBP_begin( );
-@@ -5690,8 +5731,9 @@
+@@ -5816,8 +5836,9 @@
      char map[ MAX_QPATH ];
  
      trap_Cvar_VariableStringBuffer( "mapname", map, sizeof( map ) );
@@ -390,7 +118,7 @@ Index: src/game/g_admin.c
      if( Q_stricmp( layout, "keepteams" ) && Q_stricmp( layout, "keepteamslock" ) && Q_stricmp( layout, "switchteams" ) && Q_stricmp( layout, "switchteamslock" ) )
      {
        if( !Q_stricmp( layout, "*BUILTIN*" ) ||
-@@ -6047,6 +6089,11 @@
+@@ -6173,6 +6194,11 @@
        ADMP( "^3!unlock: ^7Alien team is not currently locked\n" );
        return qfalse;
      }
@@ -402,7 +130,7 @@ Index: src/game/g_admin.c
      else
        level.alienTeamLocked = qfalse;
    }
-@@ -6056,6 +6103,11 @@
+@@ -6182,6 +6208,11 @@
        ADMP( "^3!unlock: ^7Human team is not currently locked\n" );
        return qfalse;
      }
@@ -414,7 +142,7 @@ Index: src/game/g_admin.c
      else
        level.humanTeamLocked = qfalse;
    }
-@@ -6562,6 +6614,11 @@
+@@ -6688,6 +6719,11 @@
      ADMP( "^3!revert: ^7no build log found\n" );
      return qfalse;
    }
@@ -426,7 +154,7 @@ Index: src/game/g_admin.c
    if( G_SayArgc( ) < 2 + skiparg )
    {
      ADMP( "^3!revert: ^7usage: !revert (^5xnum^7) (^5#ID^7) (^5-name|num^7) (^5a|h^7)\n" );
-@@ -7082,6 +7139,155 @@
+@@ -7235,6 +7271,155 @@
    return qtrue;
  }
  
@@ -581,12 +309,12 @@ Index: src/game/g_admin.c
 +
  qboolean G_admin_invisible( gentity_t *ent, int skiparg )
  {
-   // Only allow spectators to become invisible
+   if( !ent )
 Index: src/game/g_admin.h
 ===================================================================
 --- src/game/g_admin.h	(revision 67)
 +++ src/game/g_admin.h	(working copy)
-@@ -242,6 +242,8 @@
+@@ -252,6 +252,8 @@
  qboolean G_admin_warn( gentity_t *ent, int skiparg );
  qboolean G_admin_designate( gentity_t *ent, int skiparg );
  qboolean G_admin_cp( gentity_t *ent, int skiparg );
@@ -595,11 +323,45 @@ Index: src/game/g_admin.h
  
  qboolean G_admin_slap( gentity_t *ent, int skiparg );
  qboolean G_admin_drop( gentity_t *ent, int skiparg );
+Index: src/game/g_buildable.c
+===================================================================
+--- src/game/g_buildable.c	(revision 67)
++++ src/game/g_buildable.c	(working copy)
+@@ -1962,7 +1962,8 @@
+ 
+         if( player->client && player->client->ps.stats[ STAT_PTEAM ] == PTE_HUMANS )
+         {
+-          if( player->health < player->client->ps.stats[ STAT_MAX_HEALTH ] &&
++          if( ( player->health < player->client->ps.stats[ STAT_MAX_HEALTH ] ||
++            ( player->client->ps.stats[ STAT_STAMINA ] < MAX_STAMINA && g_invasion.integer ) ) &&
+               player->client->ps.pm_type != PM_DEAD )
+           {
+             self->enemy = player;
+@@ -1998,6 +1999,19 @@
+ 
+       self->enemy->health++;
+ 
++      if (g_invasion.integer) {
++        if (self->enemy->health < self->enemy->client->ps.stats[ STAT_MAX_HEALTH ]) 
++          self->enemy->health+=4;
++        if (self->enemy->client->ps.stats[ STAT_STAMINA ] < MAX_STAMINA)
++          self->enemy->client->ps.stats[ STAT_STAMINA ] += 100;
++      }
++
++      //if hp > MAX or stamina > MAX
++      if (self->enemy->health >= self->enemy->client->ps.stats[ STAT_MAX_HEALTH ]) 
++        self->enemy->health = self->enemy->client->ps.stats[ STAT_MAX_HEALTH ];
++      if (self->enemy->client->ps.stats[ STAT_STAMINA ] > MAX_STAMINA)
++        self->enemy->client->ps.stats[ STAT_STAMINA ] = MAX_STAMINA;
++
+       //if they're completely healed, give them a medkit
+       if( self->enemy->health >= self->enemy->client->ps.stats[ STAT_MAX_HEALTH ] &&
+           !BG_InventoryContainsUpgrade( UP_MEDKIT, self->enemy->client->ps.stats ) )
 Index: src/game/g_client.c
 ===================================================================
 --- src/game/g_client.c	(revision 67)
 +++ src/game/g_client.c	(working copy)
-@@ -1642,8 +1642,10 @@
+@@ -1731,8 +1731,10 @@
  
        if( spawnPoint->biteam == PTE_ALIENS )
          spawnPoint->clientSpawnTime = ALIEN_SPAWN_REPEAT_TIME;
@@ -655,7 +417,7 @@ Index: src/game/g_cmds.c
      else if( level.alienTeamLocked )
      {
        // if only one team has been locked, let people join the other
-@@ -1792,6 +1825,83 @@
+@@ -1821,6 +1833,83 @@
          sizeof( level.voteDisplayString ), "Set the next map to '%s^7'", arg2 );
      level.votePassThreshold = g_mapVotesPercent.integer;
    }
@@ -739,7 +501,7 @@ Index: src/game/g_cmds.c
    else if( !Q_stricmp( arg1, "draw" ) )
    {
      Com_sprintf( level.voteString, sizeof( level.voteString ), "evacuation" );
-@@ -1982,7 +2082,7 @@
+@@ -1993,7 +2082,7 @@
      {
        trap_SendServerCommand( ent-g_entities, "print \"Invalid vote string\n\"" );
        trap_SendServerCommand( ent-g_entities, "print \"Valid vote commands are: "
@@ -748,7 +510,7 @@ Index: src/game/g_cmds.c
        if( customVoteKeys[ 0 ] != '\0' )
          trap_SendServerCommand( ent-g_entities,
            va( "print \"Additional custom vote commands: %s\n\"", customVoteKeys ) );
-@@ -2603,8 +2713,8 @@
+@@ -2730,8 +2819,8 @@
      else if( ent->client->pers.teamSelection == PTE_HUMANS )
      {
        //set the item to spawn with
@@ -759,7 +521,7 @@ Index: src/game/g_cmds.c
        {
          ent->client->pers.humanItemSelection = WP_MACHINEGUN;
        }
-@@ -2767,7 +2877,7 @@
+@@ -2894,7 +2983,7 @@
        ent->client->ps.stats[ STAT_PCLASS ] = PCL_HUMAN;
  
      //set the item to spawn with
@@ -768,7 +530,7 @@ Index: src/game/g_cmds.c
        ent->client->pers.humanItemSelection = WP_MACHINEGUN;
      else if( !Q_stricmp( s, BG_FindNameForWeapon( WP_HBUILD ) ) && BG_WeaponIsAllowed( WP_HBUILD ) )
        ent->client->pers.humanItemSelection = WP_HBUILD;
-@@ -3295,6 +3405,13 @@
+@@ -3422,6 +3511,13 @@
        return;
      }
  
@@ -782,7 +544,7 @@ Index: src/game/g_cmds.c
      //add to inventory
      BG_AddWeaponToInventory( weapon, ent->client->ps.stats );
      BG_FindAmmoForWeapon( weapon, &maxAmmo, &maxClips );
-@@ -3373,6 +3490,13 @@
+@@ -3500,6 +3596,13 @@
        return;
      }
  
@@ -796,3 +558,241 @@ Index: src/game/g_cmds.c
      if( upgrade == UP_AMMO )
        G_GiveClientMaxAmmo( ent, buyingEnergyAmmo );
      else
+Index: src/game/g_combat.c
+===================================================================
+--- src/game/g_combat.c	(revision 67)
++++ src/game/g_combat.c	(working copy)
+@@ -1319,7 +1319,7 @@
+          else if(g_friendlyFireMovementAttacks.value > 0 && g_friendlyFireMovementAttacks.value < 1)
+            damage =(int)(0.5 + g_friendlyFireMovementAttacks.value * (float) damage);
+       }
+-      if( g_friendlyBuildableFire.value <= 0 )
++      if( g_friendlyBuildableFire.value <= 0 || g_invasion.integer )
+       {
+         return;
+       }
+Index: src/game/g_local.h
+===================================================================
+--- src/game/g_local.h	(revision 67)
++++ src/game/g_local.h	(working copy)
+@@ -1542,6 +1542,15 @@
+ extern  vmCvar_t  g_teamStatus;
+ extern  vmCvar_t  g_antiSpawnBlock;
+ 
++extern  vmCvar_t  g_invasion;
++extern  vmCvar_t  g_invasionStartTime;
++extern  vmCvar_t  g_invasionLayout;
++extern  vmCvar_t  g_invasionCurrentLayout;
++extern  vmCvar_t  g_invasionBotNumber;
++extern  vmCvar_t  g_invasionBotMin;
++extern  vmCvar_t  g_invasionBotMax;
++extern  vmCvar_t  g_invasionBotPrefix;
++
+ extern  vmCvar_t  g_dretchPunt;
+ 
+ extern  vmCvar_t  g_devmapNoGod;
+Index: src/game/g_main.c
+===================================================================
+--- src/game/g_main.c	(revision 67)
++++ src/game/g_main.c	(working copy)
+@@ -23,7 +23,8 @@
+ 
+ #include "g_local.h"
+ 
+-#define QVM_NAME       "Slackers QVM" " (Lakitu7 5.5)"
++#define QVM_NAME       "Slackers QVM" QVM_MODNAME " (Lakitu7 5.5)"
++#define QVM_MODNAME    " (Invasion 2.1)"
+ #define QVM_VERSIONNUM      "1.1"
+ 
+ level_locals_t  level;
+@@ -198,6 +199,15 @@
+ 
+ vmCvar_t  g_tag;
+ 
++vmCvar_t  g_invasion;
++vmCvar_t  g_invasionStartTime;
++vmCvar_t  g_invasionLayout;
++vmCvar_t  g_invasionCurrentLayout;
++vmCvar_t  g_invasionBotNumber;
++vmCvar_t  g_invasionBotMin;
++vmCvar_t  g_invasionBotMax;
++vmCvar_t  g_invasionBotPrefix;
++
+ vmCvar_t  g_dretchPunt;
+ 
+ vmCvar_t  g_allowShare;
+@@ -445,6 +455,15 @@
+   
+   { &g_tag, "g_tag", "main", CVAR_INIT, 0, qfalse },
+   
++  { &g_invasion, "g_invasion", "0", CVAR_ROM, 0, qfalse  },
++  { &g_invasionStartTime, "g_invasionStartTime", "60", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qfalse  },
++  { &g_invasionLayout, "g_invasionLayout", "invasion", CVAR_ARCHIVE, 0, qfalse  },
++  { &g_invasionCurrentLayout, "g_invasionCurrentLayout", "", CVAR_SERVERINFO | CVAR_ROM, 0, qfalse  },
++  { &g_invasionBotNumber, "g_invasionBotNumber", "", CVAR_ROM, 0, qfalse  },
++  { &g_invasionBotMin, "g_invasionBotMin", "4", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qfalse  },
++  { &g_invasionBotMax, "g_invasionBotMax", "12", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qfalse  },
++  { &g_invasionBotPrefix, "g_invasionBotPrefix", "", CVAR_ROM, 0, qfalse  },
++  
+   { &g_dretchPunt, "g_dretchPunt", "1", CVAR_ARCHIVE, 0, qfalse  },
+   
+   { &g_msg, "g_msg", "", CVAR_ARCHIVE, 0, qfalse  },
+@@ -983,6 +1002,20 @@
+     level.humanTeamLocked=qtrue;
+     trap_Cvar_Set( "g_lockTeamsAtStart", "0" );
+   }
++
++  //Load invasion OR Reset invasion var
++  if( (level.alienTeamLocked == qtrue) && (level.humanTeamLocked == qtrue) && (g_invasion.integer) &&
++    !Q_strncmp( level.layout, Q_strlwr(g_invasionLayout.string), strlen(g_invasionLayout.string) ) )
++  {
++    level.humanTeamLocked = qfalse;
++    if( g_invasionStartTime.integer > 0 )
++      trap_SendServerCommand( -1, va( "cp \"^1Don't leave your base before %isec !\n\"", g_invasionStartTime.integer ) );
++  }
++  else
++  {
++    trap_Cvar_Set( "g_invasion", 0);
++    trap_Cvar_Set( "g_invasionCurrentLayout" , "" );
++  }
+ }
+ 
+ /*
+@@ -1373,7 +1406,10 @@
+ {
+   int i;
+   gentity_t *ent;
++  char message[ MAX_STRING_CHARS ];
++  int lastNumAliensSpawns;
+ 
++  lastNumAliensSpawns = level.numAlienSpawns;
+   level.numAlienSpawns = 0;
+   level.numHumanSpawns = 0;
+ 
+@@ -1392,6 +1428,20 @@
+   //let the client know how many spawns there are
+   trap_SetConfigstring( CS_SPAWNS, va( "%d %d",
+         level.numAlienSpawns, level.numHumanSpawns ) );
++
++ //display how many eggs there are for the scenario Invasion
++  if( ( lastNumAliensSpawns > level.numAlienSpawns ) &&
++      ( lastNumAliensSpawns >= 0 ) && g_invasion.integer )
++  {
++    if( level.numAlienSpawns == 0 )
++      Com_sprintf( message, sizeof( message ), "^1No egg left... Kill all aliens to finish\n" );
++    else if( level.numAlienSpawns == 1 )
++      Com_sprintf( message, sizeof( message ), "^3Just 1 egg left... you can do it !!!\n" );
++    else
++      Com_sprintf( message, sizeof( message ), "^2%i eggs left\n", level.numAlienSpawns );
++    trap_SendServerCommand( -1, va( "cp \"%s\"", message ) );
++    trap_SendServerCommand( -1, va( "print \"^7CP: %s", message ) );
++  }
+ }
+ 
+ /*
+@@ -2447,6 +2497,13 @@
+     return;
+   }
+ 
++  // if scenario Invasion, go now
++  if( g_invasion.integer )
++  {
++    ExitLevel( );
++    return;
++  }
++
+   // if nobody wants to go, clear timer
+   if( !ready && numPlayers )
+   {
+@@ -2513,6 +2570,8 @@
+ */
+ void CheckExitRules( void )
+ {
++  char map[ MAX_QPATH ];
++  trap_Cvar_VariableStringBuffer( "mapname", map, sizeof( map ) );
+   // if at the intermission, wait for all non-bots to
+   // signal ready, then go to next level
+   if( level.intermissiontime )
+@@ -2564,7 +2623,12 @@
+   {
+     //humans win
+     level.lastWin = PTE_HUMANS;
+-    trap_SendServerCommand( -1, "print \"Humans win\n\"");
++    if (g_invasion.integer)
++      trap_SendServerCommand( -1, va( "print \"\n^3Congratulations !\n^7Humans stopped the "
++        "invasion of ^2%i^7 aliens on the layout ^2%s^7 of the planet ^2%s^7.\n\"",
++        g_invasionBotNumber.integer, g_invasionCurrentLayout.string, map ) );
++    else
++      trap_SendServerCommand( -1, "print \"Humans win\n\"");
+     trap_SetConfigstring( CS_WINNER, "Humans Win" );
+     LogExit( "Humans win." );
+     G_admin_maplog_result( "h" );
+@@ -2576,7 +2640,12 @@
+   {
+     //aliens win
+     level.lastWin = PTE_ALIENS;
+-    trap_SendServerCommand( -1, "print \"Aliens win\n\"");
++    if (g_invasion.integer)
++      trap_SendServerCommand( -1, va( "print \"\nThe layout ^2%s"
++        "^7 of the planet ^2%s^7 has been destroyed by an invasion of ^2%i^7 aliens.\n\"",
++        g_invasionCurrentLayout.string, map, g_invasionBotNumber.integer) );
++    else
++      trap_SendServerCommand( -1, "print \"Aliens win\n\"");
+     trap_SetConfigstring( CS_WINNER, "Aliens Win" );
+     LogExit( "Aliens win." );
+     G_admin_maplog_result( "a" );
+@@ -2949,6 +3018,42 @@
+ }
+ 
+ /*
++==================
++CheckInvasionBots
++
++Check if it's time to add Bots for Invasion
++==================
++*/
++void CheckInvasionBots( void )
++{
++  static int invasionBotNumber = 0;
++
++  //wait 5 seconds before adding 1 bot and add 1 bot each 0,5 second
++  if( g_invasion.integer && ( invasionBotNumber < g_invasionBotNumber.integer ) &&
++    ( ( level.time - level.startTime ) >= ( ( 5 * 1000 ) + ( 500 * invasionBotNumber ) ) ) )
++  {
++    char invasionBotName[ MAX_NAME_LENGTH ];
++    invasionBotNumber++;
++    Q_strncpyz( invasionBotName, va( "%s%02i", g_invasionBotPrefix.string, invasionBotNumber ), sizeof( invasionBotName ) );
++    trap_SendConsoleCommand( EXEC_APPEND,va( "!bot add %s aliens 5\n", invasionBotName ) );
++  }
++}
++
++/*
++==================
++CheckInvasionStart
++
++Check if it's time to start Invasion
++==================
++*/
++void CheckInvasionStart( void )
++{
++  if( ( g_invasionStartTime.integer > 0 ) && g_invasion.integer && (level.numHumanSpawns != 0) &&
++    ( ( level.time - level.startTime ) >= ( g_invasionStartTime.integer * 1000 ) ) )
++    trap_SendConsoleCommand( EXEC_APPEND, "!invasion start\n" );
++}
++
++/*
+ ================
+ G_RunFrame
+ 
+@@ -3116,6 +3221,11 @@
+   CheckTeamVote( PTE_HUMANS );
+   CheckTeamVote( PTE_ALIENS );
+ 
++  // check invasion Add Bots
++  CheckInvasionBots( );
++  // check invasion Start
++  CheckInvasionStart( );
++
+   // for tracking changes
+   CheckCvars( );
+ 
