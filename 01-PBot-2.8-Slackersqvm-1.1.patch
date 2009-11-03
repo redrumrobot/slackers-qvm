@@ -1,6 +1,6 @@
 Index: src/game/g_local.h
 ===================================================================
---- src/game/g_local.h	(revision 83)
+--- src/game/g_local.h	(revision 92)
 +++ src/game/g_local.h	(working copy)
 @@ -43,6 +43,10 @@
  #define INTERMISSION_DELAY_TIME 1000
@@ -151,7 +151,7 @@ Index: src/game/g_local.h
  // g_cmds.c
  //
  void      Cmd_Score_f( gentity_t *ent );
-@@ -1475,6 +1571,30 @@
+@@ -1472,6 +1568,30 @@
  extern  vmCvar_t  mod_jetpackConsume;
  extern  vmCvar_t  mod_jetpackRegen;
  
@@ -182,7 +182,7 @@ Index: src/game/g_local.h
  extern  vmCvar_t  g_adminExpireTime;
  
  extern  vmCvar_t  g_autoGhost;
-@@ -1485,6 +1605,7 @@
+@@ -1482,6 +1602,7 @@
  extern  vmCvar_t  g_aimbotAdvertBanTime;
  extern  vmCvar_t  g_aimbotAdvertBanReason;
  
@@ -192,7 +192,7 @@ Index: src/game/g_local.h
  int       trap_Milliseconds( void );
 Index: src/game/g_active.c
 ===================================================================
---- src/game/g_active.c	(revision 83)
+--- src/game/g_active.c	(revision 92)
 +++ src/game/g_active.c	(working copy)
 @@ -388,6 +388,11 @@
    client->oldbuttons = client->buttons;
@@ -303,7 +303,7 @@ Index: src/game/g_active.c
    ent->client->pers.cmd.serverTime = level.time;
 Index: src/game/g_public.h
 ===================================================================
---- src/game/g_public.h	(revision 83)
+--- src/game/g_public.h	(revision 92)
 +++ src/game/g_public.h	(working copy)
 @@ -35,6 +35,8 @@
  // https://zerowing.idsoftware.com/bugzilla/show_bug.cgi?id=551
@@ -1998,9 +1998,9 @@ Index: src/game/g_bot.c
 +}
 Index: src/game/g_main.c
 ===================================================================
---- src/game/g_main.c	(revision 83)
+--- src/game/g_main.c	(revision 92)
 +++ src/game/g_main.c	(working copy)
-@@ -225,6 +225,30 @@
+@@ -223,6 +223,30 @@
  vmCvar_t  mod_jetpackConsume;
  vmCvar_t  mod_jetpackRegen;
  
@@ -2031,7 +2031,7 @@ Index: src/game/g_main.c
  vmCvar_t  g_adminExpireTime;
  
  vmCvar_t  g_autoGhost;
-@@ -441,6 +465,31 @@
+@@ -437,6 +461,31 @@
    { &mod_jetpackConsume, "mod_jetpackConsume", "2", CVAR_ARCHIVE, 0, qfalse  },
    { &mod_jetpackRegen, "mod_jetpackRegen", "3", CVAR_ARCHIVE, 0, qfalse  },
  
@@ -2063,7 +2063,7 @@ Index: src/game/g_main.c
    { &g_teamKillThreshold, "g_teamKillThreshold", "0", CVAR_ARCHIVE, 0, qfalse  },
  
    { &g_aimbotAdvertBan, "g_aimbotAdvertBan", "0", CVAR_ARCHIVE, 0, qfalse  },
-@@ -706,6 +755,82 @@
+@@ -699,6 +748,82 @@
  
  /*
  ============
@@ -2146,7 +2146,7 @@ Index: src/game/g_main.c
  G_InitGame
  
  ============
-@@ -828,6 +953,9 @@
+@@ -821,6 +946,9 @@
    // general initialization
    G_FindTeams( );
  
@@ -2156,7 +2156,7 @@ Index: src/game/g_main.c
    //TA:
    BG_InitClassOverrides( );
    BG_InitBuildableOverrides( );
-@@ -1728,7 +1856,10 @@
+@@ -1721,7 +1849,10 @@
  
    // clean up powerup info
    memset( ent->client->ps.powerups, 0, sizeof( ent->client->ps.powerups ) );
@@ -2170,7 +2170,7 @@ Index: src/game/g_main.c
    ent->s.eType = ET_GENERAL;
 Index: src/game/g_admin.c
 ===================================================================
---- src/game/g_admin.c	(revision 83)
+--- src/game/g_admin.c	(revision 92)
 +++ src/game/g_admin.c	(working copy)
 @@ -80,6 +80,16 @@
        "[^3name|slot#|IP^7] (^5time^7) (^5reason^7)"
@@ -2189,7 +2189,7 @@ Index: src/game/g_admin.c
      {"buildlog", G_admin_buildlog, "buildlog",
        "display a list of recent builds and deconstructs, optionally specifying"
        " a team",
-@@ -7239,3 +7249,129 @@
+@@ -7254,3 +7264,129 @@
    return qtrue;
  }
  
@@ -2321,7 +2321,7 @@ Index: src/game/g_admin.c
 +
 Index: src/game/g_admin.h
 ===================================================================
---- src/game/g_admin.h	(revision 83)
+--- src/game/g_admin.h	(revision 92)
 +++ src/game/g_admin.h	(working copy)
 @@ -257,6 +257,9 @@
  qboolean G_admin_drop( gentity_t *ent, int skiparg );
@@ -2335,9 +2335,9 @@ Index: src/game/g_admin.h
  void G_admin_buffer_begin( void );
 Index: src/game/g_client.c
 ===================================================================
---- src/game/g_client.c	(revision 83)
+--- src/game/g_client.c	(revision 92)
 +++ src/game/g_client.c	(working copy)
-@@ -1417,6 +1417,11 @@
+@@ -1415,6 +1415,11 @@
  
    ent = &g_entities[ clientNum ];
  
@@ -2351,7 +2351,7 @@ Index: src/game/g_client.c
    value = Info_ValueForKey( userinfo, "cl_guid" );
 Index: src/game/g_cmds.c
 ===================================================================
---- src/game/g_cmds.c	(revision 83)
+--- src/game/g_cmds.c	(revision 92)
 +++ src/game/g_cmds.c	(working copy)
 @@ -1659,6 +1659,8 @@
   
@@ -2401,7 +2401,7 @@ Index: src/game/g_cmds.c
  
      // use ip in case this player disconnects before the vote ends
      Com_sprintf( level.teamVoteString[ cs_offset ],
-@@ -4972,6 +4992,528 @@
+@@ -4994,6 +5014,528 @@
       total-value, type ) );
   }
  
@@ -2930,7 +2930,7 @@ Index: src/game/g_cmds.c
  commands_t cmds[ ] = {
    // normal commands
    { "team", 0, Cmd_Team_f },
-@@ -5014,6 +5556,8 @@
+@@ -5036,6 +5578,8 @@
    { "ptrcverify", CMD_NOTEAM, Cmd_PTRCVerify_f },
    { "ptrcrestore", CMD_NOTEAM, Cmd_PTRCRestore_f },
  
@@ -2941,7 +2941,7 @@ Index: src/game/g_cmds.c
    { "followprev", 0, Cmd_FollowCycle_f },
 Index: Makefile
 ===================================================================
---- Makefile	(revision 83)
+--- Makefile	(revision 92)
 +++ Makefile	(working copy)
 @@ -845,6 +845,7 @@
    $(B)/base/game/bg_slidemove.o \
