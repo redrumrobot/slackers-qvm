@@ -1,0 +1,3308 @@
+Index: src/game/bg_misc.c
+===================================================================
+--- src/game/bg_misc.c	(revision 92)
++++ src/game/bg_misc.c	(working copy)
+@@ -627,6 +627,187 @@
+     qfalse,                //qboolean  transparentTest;
+     qfalse,                //qboolean  reactorTest;
+     qtrue,                 //qboolean  replacable;
++  },
++  {
++    BA_RELIC_FOUNT,        //int       buildNum;
++    "relic_fount",         //char      *buildName;
++    "^3Relic Fount",       //char      *humanName;
++    "relic_fount",         //char      *entityName;
++    { "models/buildables/relic_fount/fount.md3", 0, 0, 0 },
++    12.5f,                 //float     modelScale;
++    { -15, -15, -0 },      //vec3_t    mins;
++    { 15, 15, 1 },         //vec3_t    maxs;
++    1.0f,                  //float     zOffset;
++    TR_GRAVITY,            //trType_t  traj;
++    0.0,                   //float     bounce;
++    0,                     //int       buildPoints;
++    ( 1 << S1 )|( 1 << S2 )|( 1 << S3 ), //int  stages
++    1,                     //int       health;
++    0,                     //int       regenRate;
++    0,                     //int       splashDamage;
++    0,                     //int       splashRadius;
++    MOD_HSPAWN,            //int       meansOfDeath;
++    BIT_NONE,              //int       team;
++    ( 1 << WP_HBUILD )|( 1 << WP_HBUILD2 )|
++    ( 1 << WP_ABUILD )|( 1 << WP_ABUILD2 ),    //weapon_t  buildWeapon;
++    BANIM_IDLE1,           //int       idleAnim;
++    100,                   //int       nextthink;
++    0,                     //int       buildTime;
++    qfalse,                //qboolean  usable;
++    0,                     //int       turretRange;
++    0,                     //int       turretFireSpeed;
++    WP_NONE,               //weapon_t  turretProjType;
++    0.f,                   //float     minNormal;
++    qtrue,                 //qboolean  invertNormal;
++    qfalse,                //qboolean  creepTest;
++    0,                     //int       creepSize;
++    qfalse,                //qboolean  dccTest;
++    qfalse,                //qboolean  transparentTest;
++    qfalse                 //qboolean  reactorTest;
++  },
++  {
++    BA_DPOINT_A,           //int       buildNum;
++    "dpoint_a",            //char      *buildName;
++    "^3Domination Point A",//char      *humanName;
++    "domination_point_a",  //char      *entityName;
++    { "models/buildables/dpoint_a/dpoint_a.md3", 0, 0, 0 },
++    1.0f,                  //float     modelScale;
++    { -15, -15, 0 },       //vec3_t    mins;
++    { 15, 15, 1 },         //vec3_t    maxs;
++    48.0f,                 //float     zOffset;
++    TR_GRAVITY,            //trType_t  traj;
++    0.0,                   //float     bounce;
++    0,                     //int       buildPoints;
++    ( 1 << S1 )|( 1 << S2 )|( 1 << S3 ), //int  stages
++    DOMINATION_HEALTH,     //int       health;
++    0,                     //int       regenRate;
++    0,                     //int       splashDamage;
++    0,                     //int       splashRadius;
++    0,                     //int       meansOfDeath;
++    BIT_NONE,              //int       team;
++    ( 1 << WP_HBUILD )|( 1 << WP_HBUILD2 )|
++    ( 1 << WP_ABUILD )|( 1 << WP_ABUILD2 ), //weapon_t  buildWeapon;
++    BANIM_IDLE1,           //int       idleAnim;
++    DOMINATION_THINK,      //int       nextthink;
++    0,                     //int       buildTime;
++    qfalse,                //qboolean  usable;
++    0,                     //int       turretRange;
++    0,                     //int       turretFireSpeed;
++    WP_NONE,               //weapon_t  turretProjType;
++    0.95f,                 //float     minNormal;
++    qfalse,                //qboolean  invertNormal;
++    qfalse,                //qboolean  creepTest;
++    0,                     //int       creepSize;
++    qfalse,                //qboolean  dccTest;
++    qfalse                 //qboolean  reactorTest;
++  },
++  {
++    BA_DPOINT_B,           //int       buildNum;
++    "dpoint_b",            //char      *buildName;
++    "^3Domination Point B",//char      *humanName;
++    "domination_point_b",  //char      *entityName;
++    { "models/buildables/dpoint_b/dpoint_b.md3", 0, 0, 0 },
++    1.0f,                  //float     modelScale;
++    { -15, -15, 0 },       //vec3_t    mins;
++    { 15, 15, 1 },         //vec3_t    maxs;
++    48.0f,                 //float     zOffset;
++    TR_GRAVITY,            //trType_t  traj;
++    0.0,                   //float     bounce;
++    0,                     //int       buildPoints;
++    ( 1 << S1 )|( 1 << S2 )|( 1 << S3 ), //int  stages
++    DOMINATION_HEALTH,     //int       health;
++    0,                     //int       regenRate;
++    0,                     //int       splashDamage;
++    0,                     //int       splashRadius;
++    0,                     //int       meansOfDeath;
++    BIT_NONE,              //int       team;
++    ( 1 << WP_HBUILD )|( 1 << WP_HBUILD2 )|
++    ( 1 << WP_ABUILD )|( 1 << WP_ABUILD2 ), //weapon_t  buildWeapon;
++    BANIM_IDLE1,           //int       idleAnim;
++    DOMINATION_THINK,      //int       nextthink;
++    0,                     //int       buildTime;
++    qfalse,                //qboolean  usable;
++    0,                     //int       turretRange;
++    0,                     //int       turretFireSpeed;
++    WP_NONE,               //weapon_t  turretProjType;
++    0.95f,                 //float     minNormal;
++    qfalse,                //qboolean  invertNormal;
++    qfalse,                //qboolean  creepTest;
++    0,                     //int       creepSize;
++    qfalse,                //qboolean  dccTest;
++    qfalse                 //qboolean  reactorTest;
++  },
++  {
++    BA_DPOINT_C,           //int       buildNum;
++    "dpoint_c",            //char      *buildName;
++    "^3Domination Point C",//char      *humanName;
++    "domination_point_c",  //char      *entityName;
++    { "models/buildables/dpoint_c/dpoint_c.md3", 0, 0, 0 },
++    1.0f,                  //float     modelScale;
++    { -15, -15, 0 },       //vec3_t    mins;
++    { 15, 15, 1 },         //vec3_t    maxs;
++    48.0f,                 //float     zOffset;
++    TR_GRAVITY,            //trType_t  traj;
++    0.0,                   //float     bounce;
++    0,                     //int       buildPoints;
++    ( 1 << S1 )|( 1 << S2 )|( 1 << S3 ), //int  stages
++    DOMINATION_HEALTH,     //int       health;
++    0,                     //int       regenRate;
++    0,                     //int       splashDamage;
++    0,                     //int       splashRadius;
++    0,                     //int       meansOfDeath;
++    BIT_NONE,              //int       team;
++    ( 1 << WP_HBUILD )|( 1 << WP_HBUILD2 )|
++    ( 1 << WP_ABUILD )|( 1 << WP_ABUILD2 ), //weapon_t  buildWeapon;
++    BANIM_IDLE1,           //int       idleAnim;
++    DOMINATION_THINK,      //int       nextthink;
++    0,                     //int       buildTime;
++    qfalse,                //qboolean  usable;
++    0,                     //int       turretRange;
++    0,                     //int       turretFireSpeed;
++    WP_NONE,               //weapon_t  turretProjType;
++    0.95f,                 //float     minNormal;
++    qfalse,                //qboolean  invertNormal;
++    qfalse,                //qboolean  creepTest;
++    0,                     //int       creepSize;
++    qfalse,                //qboolean  dccTest;
++    qfalse                 //qboolean  reactorTest;
++  },
++  {
++    BA_DPOINT_D,           //int       buildNum;
++    "dpoint_d",            //char      *buildName;
++    "^3Domination Point D",//char      *humanName;
++    "domination_point_d",  //char      *entityName;
++    { "models/buildables/dpoint_d/dpoint_d.md3", 0, 0, 0 },
++    1.0f,                  //float     modelScale;
++    { -15, -15, 0 },       //vec3_t    mins;
++    { 15, 15, 1 },         //vec3_t    maxs;
++    48.0f,                 //float     zOffset;
++    TR_GRAVITY,            //trType_t  traj;
++    0.0,                   //float     bounce;
++    0,                     //int       buildPoints;
++    ( 1 << S1 )|( 1 << S2 )|( 1 << S3 ), //int  stages
++    DOMINATION_HEALTH,     //int       health;
++    0,                     //int       regenRate;
++    0,                     //int       splashDamage;
++    0,                     //int       splashRadius;
++    0,                     //int       meansOfDeath;
++    BIT_NONE,              //int       team;
++    ( 1 << WP_HBUILD )|( 1 << WP_HBUILD2 )|
++    ( 1 << WP_ABUILD )|( 1 << WP_ABUILD2 ), //weapon_t  buildWeapon;
++    BANIM_IDLE1,           //int       idleAnim;
++    DOMINATION_THINK,      //int       nextthink;
++    0,                     //int       buildTime;
++    qfalse,                //qboolean  usable;
++    0,                     //int       turretRange;
++    0,                     //int       turretFireSpeed;
++    WP_NONE,               //weapon_t  turretProjType;
++    0.95f,                 //float     minNormal;
++    qfalse,                //qboolean  invertNormal;
++    qfalse,                //qboolean  creepTest;
++    0,                     //int       creepSize;
++    qfalse,                //qboolean  dccTest;
++    qfalse                 //qboolean  reactorTest;
+   }
+ };
+ 
+@@ -1544,6 +1725,7 @@
+     { -15, -15, -15 },                              //vec3_t  deadmins;
+     { 15, 15, 15 },                                 //vec3_t  deadmaxs;
+     0.0f,                                           //float   zOffset
++    0.0f,                                           //float   spriteOffset;
+     0, 0,                                           //int     viewheight, crouchviewheight;
+     0,                                              //int     health;
+     0.0f,                                           //float   fallDamage;
+@@ -1582,6 +1764,7 @@
+     { -15, -15, -4 },                               //vec3_t  deadmins;
+     { 15, 15, 4 },                                  //vec3_t  deadmaxs;
+     0.0f,                                           //float   zOffset
++    0.0f,                                           //float   spriteOffset;
+     0, 0,                                           //int     viewheight, crouchviewheight;
+     ABUILDER_HEALTH,                                //int     health;
+     0.2f,                                           //float   fallDamage;
+@@ -1620,6 +1803,7 @@
+     { -20, -20, -4 },                               //vec3_t  deadmins;
+     { 20, 20, 4 },                                  //vec3_t  deadmaxs;
+     0.0f,                                           //float   zOffset
++    0.0f,                                           //float   spriteOffset;
+     0, 0,                                           //int     viewheight, crouchviewheight;
+     ABUILDER_UPG_HEALTH,                            //int     health;
+     0.0f,                                           //float   fallDamage;
+@@ -1658,6 +1842,7 @@
+     { -15, -15, -4 },                               //vec3_t  deadmins;
+     { 15, 15, 4 },                                  //vec3_t  deadmaxs;
+     -8.0f,                                          //float   zOffset
++    0.0f,                                           //float   spriteOffset;
+     0, 0,                                           //int     viewheight, crouchviewheight;
+     LEVEL0_HEALTH,                                  //int     health;
+     0.0f,                                           //float   fallDamage;
+@@ -1697,6 +1882,7 @@
+     { -18, -18, -4 },                               //vec3_t  deadmins;
+     { 18, 18, 4 },                                  //vec3_t  deadmaxs;
+     0.0f,                                           //float   zOffset
++    0.0f,                                           //float   spriteOffset;
+     0, 0,                                           //int     viewheight, crouchviewheight;
+     LEVEL1_HEALTH,                                  //int     health;
+     0.0f,                                           //float   fallDamage;
+@@ -1736,6 +1922,7 @@
+     { -20, -20, -4 },                               //vec3_t  deadmins;
+     { 20, 20, 4 },                                  //vec3_t  deadmaxs;
+     0.0f,                                           //float   zOffset
++    0.0f,                                           //float   spriteOffset;
+     0, 0,                                           //int     viewheight, crouchviewheight;
+     LEVEL1_UPG_HEALTH,                              //int     health;
+     0.0f,                                           //float   fallDamage;
+@@ -1755,14 +1942,14 @@
+     300.0f,                                         //float   stopSpeed;
+     270.0f,                                         //float   jumpMagnitude;
+     1.1f,                                           //float   knockbackScale;
+-    { PCL_ALIEN_LEVEL2, PCL_NONE, PCL_NONE },       //int     children[ 3 ];
++    { PCL_NONE, PCL_NONE, PCL_NONE },               //int     children[ 3 ];
+     LEVEL1_UPG_COST,                                //int     cost;
+     LEVEL1_UPG_VALUE                                //int     value;
+   },
+   {
+     PCL_ALIEN_LEVEL2,                               //int     classnum;
+     "level2",                                       //char    *classname;
+-    "Chimera",                                      //char    *humanname;
++    "Marauder",                                     //char    *humanname;
+     "tarantula",                                    //char    *modelname;
+     0.75f,                                          //float   modelScale;
+     "default",                                      //char    *skinname;
+@@ -1775,6 +1962,7 @@
+     { -22, -22, -4 },                               //vec3_t  deadmins;
+     { 22, 22, 4 },                                  //vec3_t  deadmaxs;
+     0.0f,                                           //float   zOffset
++    0.0f,                                           //float   spriteOffset;
+     10, 10,                                         //int     viewheight, crouchviewheight;
+     LEVEL2_HEALTH,                                  //int     health;
+     0.0f,                                           //float   fallDamage;
+@@ -1801,7 +1989,7 @@
+   {
+     PCL_ALIEN_LEVEL2_UPG,                           //int     classnum;
+     "level2upg",                                    //char    *classname;
+-    "Chimera Upgrade",                              //char    *humanname;
++    "Advanced Marauder",                            //char    *humanname;
+     "tarantula",                                    //char    *modelname;
+     0.9f,                                           //float   modelScale;
+     "red",                                          //char    *skinname;
+@@ -1814,6 +2002,7 @@
+     { -24, -24, -4 },                               //vec3_t  deadmins;
+     { 24, 24, 4 },                                  //vec3_t  deadmaxs;
+     0.0f,                                           //float   zOffset
++    0.0f,                                           //float   spriteOffset;
+     12, 12,                                         //int     viewheight, crouchviewheight;
+     LEVEL2_UPG_HEALTH,                              //int     health;
+     0.0f,                                           //float   fallDamage;
+@@ -1833,7 +2022,7 @@
+     100.0f,                                         //float   stopSpeed;
+     400.0f,                                         //float   jumpMagnitude;
+     0.7f,                                           //float   knockbackScale;
+-    { PCL_ALIEN_LEVEL3, PCL_NONE, PCL_NONE },       //int     children[ 3 ];
++    { PCL_NONE, PCL_NONE, PCL_NONE },               //int     children[ 3 ];
+     LEVEL2_UPG_COST,                                //int     cost;
+     LEVEL2_UPG_VALUE                                //int     value;
+   },
+@@ -1853,6 +2042,7 @@
+     { -32, -32, -4 },                               //vec3_t  deadmins;
+     { 32, 32, 4 },                                  //vec3_t  deadmaxs;
+     0.0f,                                           //float   zOffset
++    24.0f,                                          //float   spriteOffset;
+     24, 24,                                         //int     viewheight, crouchviewheight;
+     LEVEL3_HEALTH,                                  //int     health;
+     0.0f,                                           //float   fallDamage;
+@@ -1879,7 +2069,7 @@
+   {
+     PCL_ALIEN_LEVEL3_UPG,                           //int     classnum;
+     "level3upg",                                    //char    *classname;
+-    "Dragoon Upgrade",                              //char    *humanname;
++    "Advanced Dragoon",                             //char    *humanname;
+     "prowl",                                        //char    *modelname;
+     1.0f,                                           //float   modelScale;
+     "default",                                      //char    *skinname;
+@@ -1892,6 +2082,7 @@
+     { -32, -32, -4 },                               //vec3_t  deadmins;
+     { 32, 32, 4 },                                  //vec3_t  deadmaxs;
+     0.0f,                                           //float   zOffset
++    32.0f,                                          //float   spriteOffset;
+     27, 27,                                         //int     viewheight, crouchviewheight;
+     LEVEL3_UPG_HEALTH,                              //int     health;
+     0.0f,                                           //float   fallDamage;
+@@ -1911,14 +2102,14 @@
+     200.0f,                                         //float   stopSpeed;
+     270.0f,                                         //float   jumpMagnitude;
+     0.4f,                                           //float   knockbackScale;
+-    { PCL_ALIEN_LEVEL4, PCL_NONE, PCL_NONE },       //int     children[ 3 ];
++    { PCL_NONE, PCL_NONE, PCL_NONE },               //int     children[ 3 ];
+     LEVEL3_UPG_COST,                                //int     cost;
+     LEVEL3_UPG_VALUE                                //int     value;
+   },
+   {
+     PCL_ALIEN_LEVEL4,                               //int     classnum;
+     "level4",                                       //char    *classname;
+-    "Big Mofo",                                     //char    *humanname;
++    "Tyrant",                                       //char    *humanname;
+     "mofo",                                         //char    *modelname;
+     1.0f,                                           //float   modelScale;
+     "default",                                      //char    *skinname;
+@@ -1931,6 +2122,7 @@
+     { -15, -15, -4 },                               //vec3_t  deadmins;
+     { 15, 15, 4 },                                  //vec3_t  deadmaxs;
+     0.0f,                                           //float   zOffset
++    82.0f,                                          //float   spriteOffset;
+     35, 35,                                         //int     viewheight, crouchviewheight;
+     LEVEL4_HEALTH,                                  //int     health;
+     0.0f,                                           //float   fallDamage;
+@@ -1970,6 +2162,7 @@
+     { -15, -15, -4 },                               //vec3_t  deadmins;
+     { 15, 15, 4 },                                  //vec3_t  deadmaxs;
+     0.0f,                                           //float   zOffset
++    12.0f,                                          //float   spriteOffset;
+     26, 12,                                         //int     viewheight, crouchviewheight;
+     100,                                            //int     health;
+     1.0f,                                           //float   fallDamage;
+@@ -2008,7 +2201,8 @@
+     { 15, 15, 38 },                                 //vec3_t  crouchmaxs;
+     { -15, -15, -4 },                               //vec3_t  deadmins;
+     { 15, 15, 4 },                                  //vec3_t  deadmaxs;
+-    -16.0f,                                           //float   zOffset
++    -16.0f,                                         //float   zOffset
++    8.0f,                                           //float   spriteOffset;
+     35, 35,                                         //int     viewheight, crouchviewheight;
+     100,                                            //int     health;
+     1.0f,                                           //float   fallDamage;
+@@ -2317,6 +2511,28 @@
+ 
+ /*
+ ==============
++BG_FindSpriteHeightForClass
++
++The height at which we can float a sprite above the client's head.
++We can't use the bounding box alone because they are not consistent with the
++models (!).
++==============
++*/
++float BG_FindSpriteHeightForClass( int pclass ) {
++  int i;
++
++  for( i = 0; i < bg_numPclasses; i++ )
++  {
++    if( bg_classList[ i ].classNum == pclass )
++    {
++      return bg_classList[ i ].maxs[ 2 ]+bg_classList[ i ].spriteOffset;
++    }
++  }
++  return 0.f;
++}
++
++/*
++==============
+ BG_FindZOffsetForClass
+ ==============
+ */
+@@ -2738,7 +2954,7 @@
+ BG_ClassCanEvolveFromTo
+ ==============
+ */
+-int BG_ClassCanEvolveFromTo( int fclass, int tclass, int credits, int num )
++/*int BG_ClassCanEvolveFromTo( int fclass, int tclass, int credits, int num )
+ {
+   int i, j, cost;
+ 
+@@ -2775,8 +2991,74 @@
+   }
+ 
+   return -1;
++}*/
++
++/*
++==============
++BG_ClassCanEvolveFromTo2
++
++This version allows for devolution.
++Node tree must not loop back.
++==============
++*/
++
++static void BG_CCEFT2_recurse(int root,int fclass,int tclass, int *fcost,
++		                          int *tcost)
++{
++	int i;
++
++	// Translate our root
++	for(i=0;i<bg_numPclasses;i++)
++		if(bg_classList[i].classNum==root) {
++			root = i;
++			break;
+ }
++	if(i>=bg_numPclasses) return;
+ 
++	// Found the node?
++	if(bg_classList[root].classNum==fclass) *fcost = 0;
++	else if(bg_classList[root].classNum==tclass) *tcost = 0;
++
++	// Recurse into children if any
++	for(i=0;i<3;i++)
++		if(bg_classList[root].children[i]!=PCL_NONE) {
++			int cost=BG_FindCostOfClass(bg_classList[root].children[i]),
++				fcost_tmp=-1,tcost_tmp=-1;
++			BG_CCEFT2_recurse(bg_classList[root].children[i],
++				fclass,tclass,&fcost_tmp,&tcost_tmp);
++			if(fcost_tmp>=0&&(*fcost<0||fcost_tmp+cost<*fcost))
++				*fcost = fcost_tmp+cost;
++			if(tcost_tmp>=0&&(*tcost<0||tcost_tmp+cost<*tcost))
++				*tcost = tcost_tmp+cost;
++			if(fcost_tmp>=0&&tcost_tmp>=0&&
++					*tcost-(int)(*fcost*ALIEN_DEVOLVE_MODIFIER)>
++					tcost_tmp-(int)(fcost_tmp*ALIEN_DEVOLVE_MODIFIER)) {
++				*tcost = tcost_tmp;
++				*fcost = fcost_tmp;
++			}
++		}
++}
++
++qboolean BG_ClassCanEvolveFromTo2(int fclass, int tclass, int *cost) {
++	int fcost=-1,tcost=-1,root=fclass;
++
++	if(fclass==PCL_NONE||tclass==PCL_NONE||fclass==tclass) {
++		//Com_Printf("Evolve FAIL problem with fclass %d or tclass %d.\n",fclass,tclass);
++		return qfalse;
++	}
++
++  root = PCL_ALIEN_BUILDER0;
++
++	BG_CCEFT2_recurse(root,fclass,tclass,&fcost,&tcost);
++	if(cost&&fcost>=0&&tcost>=0) {
++		*cost = tcost-(int)(fcost*ALIEN_DEVOLVE_MODIFIER);
++		//Com_Printf("Evolve OK from %d to %d, at %d credits.\n",fclass,tclass,*cost);
++		return qtrue;
++	}
++	//Com_Printf("Evolve FAIL from %d to %d, at %d tcost %d fcost.\n",fclass,tclass,tcost,fcost);
++	return qfalse;
++}
++
+ /*
+ ==============
+ BG_FindValueOfClass
+@@ -3409,7 +3691,7 @@
+     qtrue,                //int       infiniteAmmo;
+     qfalse,               //int       usesEnergy;
+     ABUILDER_BUILD_REPEAT,//int       repeatRate1;
+-    ABUILDER_BUILD_REPEAT,//int       repeatRate2;
++    ABUILDER_CLAW_REPEAT, //int       repeatRate2;
+     0,                    //int       repeatRate3;
+     0,                    //int       reloadTime;
+     0.0f,                 //float     knockbackScale;
+@@ -4837,8 +5119,15 @@
+   s->loopSound = ps->loopSound;
+   s->generic1 = ps->generic1;
+ 
+-  if( s->generic1 <= WPM_NONE || s->generic1 >= WPM_NUM_WEAPONMODES )
+-    s->generic1 = WPM_PRIMARY;
++  // Bit pack the weapon mode, don't interfere with relic
++  {
++    weaponMode_t wm = s->generic1 & 7;
++    if( wm <= WPM_NONE || wm >= WPM_NUM_WEAPONMODES )
++    {
++      wm = WPM_PRIMARY;
++      s->generic1 = ( s->generic1 & ~7 ) | wm;
++    }
++  }
+ 
+   s->otherEntityNum = ps->otherEntityNum;
+ }
+@@ -4949,8 +5238,15 @@
+   s->loopSound = ps->loopSound;
+   s->generic1 = ps->generic1;
+ 
+-  if( s->generic1 <= WPM_NONE || s->generic1 >= WPM_NUM_WEAPONMODES )
+-    s->generic1 = WPM_PRIMARY;
++  // Bit pack the weapon mode, don't interfere with relic
++  {
++    weaponMode_t wm = s->generic1 & 7;
++    if( wm <= WPM_NONE || wm >= WPM_NUM_WEAPONMODES )
++    {
++      wm = WPM_PRIMARY;
++      s->generic1 = ( s->generic1 & ~7 ) | wm;
++    }
++  }
+ 
+   s->otherEntityNum = ps->otherEntityNum;
+ }
+@@ -5006,17 +5302,21 @@
+ Check if a weapon has full ammo
+ ========================
+ */
+-qboolean BG_WeaponIsFull( weapon_t weapon, int stats[ ], int psAmmo[ ], int psAmmo2[ ] )
++qboolean BG_WeaponIsFull( weapon_t weapon, playerState_t *ps )
+ {
+   int maxAmmo, maxClips;
+   int ammo, clips;
+ 
+   BG_FindAmmoForWeapon( weapon, &maxAmmo, &maxClips );
+-  BG_UnpackAmmoArray( weapon, psAmmo, psAmmo2, &ammo, &clips );
++  BG_UnpackAmmoArray( weapon, ps->ammo, ps->powerups, &ammo, &clips );
+ 
+-  if( BG_InventoryContainsUpgrade( UP_BATTPACK, stats ) )
++  if( BG_InventoryContainsUpgrade( UP_BATTPACK, ps->stats ) )
+     maxAmmo = (int)( (float)maxAmmo * BATTPACK_MODIFIER );
+ 
++  // Ammo relic
++  if( BG_GetRelic( ps ) == RLC_AMMO )
++    maxAmmo *= 2;
++
+   return ( maxAmmo == ammo ) && ( maxClips == clips );
+ }
+ 
+@@ -5524,8 +5824,9 @@
+ 
+   for( i = PCL_NONE + 1; i < PCL_NUM_CLASSES; i++ )
+   {
+-    if( BG_ClassCanEvolveFromTo( ps->stats[ STAT_PCLASS ], i,
+-            ps->persistant[ PERS_CREDIT ], 0 ) >= 0 &&
++    int cost;
++    if( BG_ClassCanEvolveFromTo2( ps->stats[ STAT_PCLASS ], i, &cost ) &&
++        cost<=ps->persistant[ PERS_CREDIT ] &&
+         BG_FindStagesForClass( i, currentStage ) &&
+         BG_ClassIsAllowed( i ) )
+     {
+@@ -5729,5 +6030,3 @@
+     return;
+   sscanf( s, "%x%x", &list->hi, &list->lo );
+ }
+-
+-
+Index: src/game/tremulous.h
+===================================================================
+--- src/game/tremulous.h	(revision 92)
++++ src/game/tremulous.h	(working copy)
+@@ -137,6 +137,9 @@
+ #define ALIEN_VALUE_MODIFIER        1.0f
+ #define AVM(h)                      ((int)((float)h*ALIEN_VALUE_MODIFIER))
+ 
++#define ALIEN_DEVOLVE_MODIFIER      0.5f
++#define ALIEN_DEVOLVE_DISTANCE      200.0f
++
+ #define ABUILDER_SPEED              0.8f
+ #define ABUILDER_VALUE              AVM(200)
+ #define ABUILDER_HEALTH             AHM(50)
+@@ -619,6 +622,32 @@
+ #define DAMAGE_FRACTION_FOR_KILL    0.5f //how much damage players (versus structures) need to
+                                          //do to increment the stage kill counters
+ 
++/*
++* Domination
++*/
++
++#define DOMINATION_RANGE            400.0f // how close a player needs to be to attack a domination point
++#define DOMINATION_RANGE_SQRT       20.0f  // square root of the range (used in falloff calculation)
++#define DOMINATION_RANGE_INSTANT    64.0f  // range for instant domination capture
++#define DOMINATION_NOBUILD          600.0f // Reactor/Overmind no-build zone radius
++#define DOMINATION_TIME             10000  // how long (in msec) a team must dominate a point to claim it
++#define DOMINATION_COOLDOWN         5000   // msec between announcements
++#define DOMINATION_HEALTH           100    // health scale of a domination point
++#define DOMINATION_THINK            250    // msec between player presence checks
++
++/* These parameters modified by Domination are scaled via a polynomial formula */
++#define DOMINATION_BC_PENALTY       12     // build cooldown rate (msec)
++#define DOMINATION_BC_BONUS         -50
++#define DOMINATION_FK_PENALTY       180000 // freekill period (msec)
++#define DOMINATION_FK_BONUS         -60000
++
++/* Domination speed is determined by the 'domination weight' of the players
++   present */
++#define DOMINATION_WS_NORMAL        50     // normalizes domination weights
++#define DOMINATION_WS_HUMAN         25     // multiply value of a human (in evos)
++#define DOMINATION_WS_ALIEN         8      // divide value of an alien (in credits)
++#define DOMINATION_WS_BUILDABLE     100    // divide build time of a buildable (in msec)
++
+ // g_suddenDeathMode settings
+ #define SDMODE_BP                   0
+ #define SDMODE_NO_BUILD             1
+Index: src/game/g_local.h
+===================================================================
+--- src/game/g_local.h	(revision 92)
++++ src/game/g_local.h	(working copy)
+@@ -177,6 +177,7 @@
+ 
+   int               health;
+   int               lastHealth; // currently only used for overmind
++  int               lastHealTime;
+ 
+   qboolean          takedamage;
+ 
+@@ -231,6 +232,13 @@
+   int               lev1GrabTime;       // for turrets interacting with lev1s
+   int               spawnBlockTime;
+ 
++  // Relic variables
++  qboolean          dontSpawnRelic;     // forbidden from spawning relics
++  qboolean          relicUnlinked;      // is the relic randomly walking?
++  int               relicPickupTime;    // last time this relic was picked up
++  int               relicParentNum;     // num of the ent that spawned this relic
++  int               lastRelicSoundTime; // last time player generated a sound event
++
+   int               credits[ MAX_CLIENTS ];     // human credits for each client
+   qboolean          creditsHash[ MAX_CLIENTS ]; // track who has claimed credit
+   int               killedBy;                   // clientNum of killer
+@@ -244,6 +252,13 @@
+ 
+   qboolean          nonSegModel;        // this entity uses a nonsegmented player model
+ 
++  // Domination  variables
++  pTeam_t           dominationTeam;       // defending team
++  pTeam_t           dominationAttacking;  // attacking team
++  int               dominationTime;       // msec to capture
++  char              dominationName[ 64 ]; // domination point name
++  int               dominationClient;     // client that initiated the attack
++
+   buildable_t       bTriggers[ BA_NUM_BUILDABLES ]; // which buildables are triggers
+   pClass_t          cTriggers[ PCL_NUM_CLASSES ];   // which classes are triggers
+   weapon_t          wTriggers[ WP_NUM_WEAPONS ];    // which weapons are triggers
+@@ -531,6 +546,7 @@
+   gentity_t           *lastPoisonClient;
+   int                 lastPoisonCloudedTime;
+   gentity_t           *lastPoisonCloudedClient;
++  gentity_t           *lastPlagueClient;
+   int                 grabExpiryTime;
+   int                 lastLockTime;
+   int                 lastSlowTime;
+@@ -540,6 +556,10 @@
+   int                 medKitIncrementTime;
+   int                 lastCreepSlowTime;    // time until creep can be removed
+ 
++  // Relic client variables
++  int                 relicTime;             // last time the relic updated
++  int                 lastRelicActivateTime; // last time relic power was used
++
+   qboolean            allowedToPounce;
+ 
+   qboolean            charging;
+@@ -743,6 +763,12 @@
+   int               numLiveAlienClients;
+   int               numLiveHumanClients;
+ 
++  // Domination variables
++  int               dominationPoints[ PTE_NUM_TEAMS ];
++  int               dominationTime[ PTE_NUM_TEAMS ];
++  int               dominationTimeModCount;
++  dominationTimer_t dominationTimer;
++
+   int               alienBuildPoints;
+   int               humanBuildPoints;
+   int               humanBuildPointsPowered;
+@@ -750,6 +776,13 @@
+   gentity_t         *markedBuildables[ MAX_GENTITIES ];
+   int               numBuildablesForRemoval;
+ 
++  // Relic level variables
++  int               relicEntities;              // number of relic entities floating about the map
++  int               relicFounts;                // number of relic fount buildables on the map
++  int               numRelics;                  // relics on the map and held by players
++  int               numRelic[ RLC_NUM_RELICS ]; // count of each relic on the map
++  int               relicCvarSum;               // total number of relics specified in cvars
++
+   int               alienKills;
+   int               humanKills;
+ 
+@@ -831,7 +864,27 @@
+   void ( *cmdHandler )( gentity_t *ent );
+ } commands_t;
+ 
++// Convenience macro to get the total number of DPs or 0 if
++// domination is turned off
++#define G_DominationPoints() (g_domination.integer ?\
++                              level.dominationPoints[ PTE_NONE ] +\
++                              level.dominationPoints[ PTE_ALIENS ] +\
++                              level.dominationPoints[ PTE_HUMANS ] : 0)
++
+ //
++// g_relic.c
++//
++void G_EjectRelic( gentity_t *ent );
++void G_ClientThink_Relic( gentity_t *ent );
++void G_RelicThink( gentity_t *ent );
++void G_RelicFountThink( gentity_t *ent );
++gentity_t *G_SpawnRelic( gentity_t *ent );
++void G_RelicRunFrame( void );
++void G_RelicInit( void );
++qboolean G_CanTakeRelic( gentity_t *ent, relic_t relic );
++void G_CalculateMaxHealth( gentity_t *ent, relic_t override );
++
++//
+ // g_spawn.c
+ //
+ qboolean  G_SpawnString( const char *key, const char *defaultString, char **out );
+@@ -846,7 +899,7 @@
+ // g_cmds.c
+ //
+ void      Cmd_Score_f( gentity_t *ent );
+-qboolean  G_RoomForClassChange( gentity_t *ent, pClass_t class, vec3_t newOrigin );
++qboolean  G_RoomForClassChange( gentity_t *ent, pClass_t class, vec3_t newOrigin, qboolean toMini, qboolean fromMini );
+ void      G_StopFromFollowing( gentity_t *ent );
+ void      G_StopFollowing( gentity_t *ent );
+ qboolean  G_FollowNewClient( gentity_t *ent, int dir );
+@@ -908,6 +961,10 @@
+   IBE_NOROOM,
+   IBE_PERMISSION,
+ 
++  IBE_WARMUP,
++
++  IBE_NEARDP,
++
+   IBE_MAXERRORS
+ } itemBuildError_t;
+ 
+@@ -1134,6 +1191,7 @@
+ void QDECL G_WarningsPrintf( char *flag, const char *fmt, ... );
+ void QDECL G_LogOnlyPrintf( const char *fmt, ... );
+ void SendScoreboardMessageToAllClients( void );
++void G_DominationTimer( int clientnum );
+ void QDECL G_Printf( const char *fmt, ... );
+ void QDECL G_Error( const char *fmt, ... );
+ void CheckVote( void );
+@@ -1335,6 +1393,11 @@
+ extern  vmCvar_t  g_warmup;
+ extern  vmCvar_t  g_warmupMode;
+ extern  vmCvar_t  g_doWarmup;
++extern  vmCvar_t  g_domination;
++extern  vmCvar_t  g_relics;
++extern  vmCvar_t  g_relicFountsOnly;
++extern  vmCvar_t  g_relicSpawn;
++extern  vmCvar_t  g_relic[ RLC_NUM_RELICS ];
+ extern  vmCvar_t  g_blood;
+ extern  vmCvar_t  g_allowVote;
+ extern  vmCvar_t  g_requireVoteReasons;
+Index: src/game/g_combat.c
+===================================================================
+--- src/game/g_combat.c	(revision 92)
++++ src/game/g_combat.c	(working copy)
+@@ -94,6 +94,11 @@
+   "MOD_TARGET_LASER",
+   "MOD_TRIGGER_HURT",
+ 
++  // Relic methods of death
++  "MOD_RADIATION",
++  "MOD_GOOMBA",
++  "MOD_PLAGUE",
++
+   "MOD_ABUILDER_CLAW",
+   "MOD_LEVEL0_BITE",
+   "MOD_LEVEL1_CLAW",
+@@ -320,7 +325,7 @@
+ 
+     if ( self->client->ps.stats[ STAT_PTEAM ] == PTE_ALIENS )
+     {
+-      totalPrice = BG_ClassCanEvolveFromTo( PCL_ALIEN_LEVEL0, self->client->ps.stats[ STAT_PCLASS ], ALIEN_MAX_KILLS, 0 );
++      BG_ClassCanEvolveFromTo2( PCL_ALIEN_LEVEL0, self->client->ps.stats[ STAT_PCLASS ], &totalPrice );
+       max = ALIEN_MAX_KILLS;
+     }
+     else
+@@ -464,6 +469,8 @@
+ 
+       for( i = 0; i < MAX_CLIENTS; i++ )
+       {
++        int credits;
++
+         player = g_entities + i;
+ 
+         if( !player->client )
+@@ -475,6 +482,14 @@
+         if( !self->credits[ i ] )
+           continue;
+ 
++        credits = classValue * (float)self->credits[ i ] / totalDamage;
++
++        // Bounty relic
++        if( BG_ClientRelic( self->client ) == RLC_BOUNTY )
++          credits *= 2;
++        if( BG_ClientRelic( player->client ) == RLC_BOUNTY )
++          credits *= 2;
++
+         percentDamage = (float)self->credits[ i ] / totalDamage;
+         if( percentDamage > 0 && percentDamage < 1)
+         {
+@@ -483,8 +498,7 @@
+         }
+ 
+         //add credit
+-        G_AddCreditToClient( player->client,
+-            (int)( classValue * percentDamage ), qtrue );
++        G_AddCreditToClient( player->client, credits, qtrue );
+       }
+     }
+     else if( self->client->ps.stats[ STAT_PTEAM ] == PTE_HUMANS )
+@@ -518,13 +532,21 @@
+             player->client->pers.statscounters.assists++;
+             level.alienStatsCounters.assists++;
+          }
+-    
++
+         frags = (int)floor( humanValue * percentDamage);
+ 
+         if( frags > 0 )
+         {
++          int credits = frags;
++
++          // Bounty relic
++          if( BG_ClientRelic( self->client ) == RLC_BOUNTY )
++            credits *= 2;
++          if( BG_ClientRelic( player->client ) == RLC_BOUNTY )
++            credits *= 2;
++
+           //add kills
+-          G_AddCreditToClient( player->client, frags, qtrue );
++          G_AddCreditToClient( player->client, credits, qtrue );
+ 
+           //can't revist this account later
+           self->credits[ i ] = 0;
+@@ -562,10 +584,18 @@
+ 
+           if( maximum > 0 )
+           {
++            int credits = 1;
++
+             player = g_entities + topClient;
+ 
++            // Bounty relic
++            if( BG_ClientRelic( self->client ) == RLC_BOUNTY )
++              credits *= 2;
++            if( BG_ClientRelic( player->client ) == RLC_BOUNTY )
++              credits *= 2;
++
+             //add kills
+-            G_AddCreditToClient( player->client, 1, qtrue );
++            G_AddCreditToClient( player->client, credits, qtrue );
+ 
+             //can't revist this account again
+             self->credits[ topClient ] = 0;
+@@ -614,13 +644,22 @@
+ 
+   self->r.maxs[ 2 ] = -8;
+ 
+-  // don't allow respawn until the death anim is done
+-  // g_forcerespawn may force spawning at some later time
+-  self->client->respawnTime = level.time + 1700;
++  // Eject relic unless we are resurrecting
++  // Do not eject extra plague relics to prevent spam
++  if( BG_ClientRelic( self->client ) != RLC_RESURRECT )
++  {
++    G_EjectRelic( self );
+ 
+-  // remove powerups
+-  memset( self->client->ps.powerups, 0, sizeof( self->client->ps.powerups ) );
++    // don't allow respawn until the death anim is done
++    // g_forcerespawn may force spawning at some later time
++    self->client->respawnTime = level.time + 1700;
+ 
++    // remove powerups
++    memset( self->client->ps.powerups, 0, sizeof( self->client->ps.powerups ) );
++  } else {
++    self->client->respawnTime = level.time + 5000;
++  }
++
+   {
+     // normal death
+     static int i;
+@@ -1201,6 +1240,28 @@
+       return;
+   }
+ 
++  // Handicap damage
++  if( attacker->client && attacker->client->pers.maxHealth < 100 )
++    damage = ( damage * attacker->client->pers.maxHealth + 50 ) / 100;
++
++  // Target relic pre-damage effects
++  if( BG_ClientRelic( targ->client ) == RLC_INVISIBLE && attacker->client &&
++      !OnSameTeam( targ, attacker ) )
++    G_EjectRelic( targ );
++  else if( BG_ClientRelic( targ->client ) == RLC_DOUBLE )
++    damage *= 2;
++  else if( BG_ClientRelic( targ->client ) == RLC_HALF )
++    damage = (damage + 1) / 2;
++
++  // Attacker relic pre-damage effects
++  if( mod != MOD_PLAGUE ) {
++    if( BG_ClientRelic( attacker->client ) == RLC_DOUBLE )
++      damage *= 2;
++    else if( BG_ClientRelic( attacker->client ) == RLC_HALF ||
++             BG_ClientRelic( attacker->client ) == RLC_MINI )
++      damage = (damage + 1) / 2;
++  }
++
+   if( !dir )
+     dflags |= DAMAGE_NO_KNOCKBACK;
+   else
+@@ -1229,6 +1290,10 @@
+   if( dflags & DAMAGE_NO_KNOCKBACK )
+     knockback = 0;
+ 
++  // Push relic
++  if( mod != MOD_PLAGUE && BG_GetRelic( &attacker->s ) == RLC_PUSH )
++    knockback = knockback * 2 + 5;
++
+   // figure momentum add, even if the damage won't be taken
+   if( knockback && targ->client )
+   {
+@@ -1258,13 +1323,76 @@
+     }
+   }
+ 
++  // Reverse damage relic
++  if( mod != MOD_PLAGUE && BG_ClientRelic( attacker->client ) == RLC_REVERSE ) {
++    int max_health = 0;
++
++    damage = (damage + 3) / 5;
++
++    // Does not affect buildables
++    if (targ->s.eType == ET_BUILDABLE)
++      return;
++
++    // Reverse damage can be used to boost health beyond normal
++    if (targ->client)
++      max_health = client->ps.stats[ STAT_MAX_HEALTH ] * 3 / 2;
++    if (targ->health >= max_health)
++      return;
++
++    if (targ->health + damage > max_health )
++      damage = max_health - targ->health;
++    if (damage >= 0) {
++      targ->health += damage;
++      if( level.time - targ->lastRelicSoundTime > 1000 ) {
++        G_AddEvent( targ, EV_RELIC_HEAL, 0 );
++        targ->lastRelicSoundTime = level.time;
++      }
++    }
++    targ->lastHealTime = level.time;
++    return;
++  }
++
++  // Translocation relic
++  if( mod != MOD_PLAGUE && attacker->client && targ->client &&
++      BG_ClientRelic( attacker->client ) == RLC_TRANSLOCATE &&
++      attacker->client->lastRelicActivateTime + 3000 < level.time )
++  {
++    vec3_t attackerOrigin, targOrigin;
++    qboolean attackerMini = BG_GetRelic( &attacker->s ) == RLC_MINI,
++             targMini = BG_GetRelic( &targ->s ) == RLC_MINI;
++
++    trap_UnlinkEntity( attacker );
++    trap_UnlinkEntity( targ );
++    if( G_RoomForClassChange( attacker, targ->client->ps.stats[ STAT_PCLASS ],
++                              attackerOrigin, targMini, attackerMini ) &&
++        G_RoomForClassChange( targ, attacker->client->ps.stats[ STAT_PCLASS ],
++                              targOrigin, attackerMini, targMini ) )
++    {
++      G_SetOrigin( attacker, targOrigin );
++      VectorCopy( targOrigin, attacker->client->ps.origin );
++      G_SetOrigin( targ, attackerOrigin );
++      VectorCopy( attackerOrigin, targ->client->ps.origin );
++      G_AddEvent( attacker, EV_TRANSLOCATE, 0 );
++      G_AddEvent( targ, EV_TRANSLOCATE, 0 );
++      attacker->client->lastRelicActivateTime = level.time;
++    }
++    trap_LinkEntity( attacker );
++    trap_LinkEntity( targ );
++  }
++
++  // Eject relic
++  if( mod != MOD_PLAGUE && targ->client &&
++      BG_ClientRelic( attacker->client ) == RLC_BREAKER &&
++      G_CanTakeRelic( targ, RLC_NONE ) )
++    G_EjectRelic( targ );
++
+   // check for completely getting out of the damage
+   if( !( dflags & DAMAGE_NO_PROTECTION ) )
+   {
+ 
+     // if TF_NO_FRIENDLY_FIRE is set, don't do damage to the target
+     // if the attacker was on the same team
+-    if( targ != attacker && OnSameTeam( targ, attacker ) )
++    if( mod != MOD_PLAGUE && targ != attacker && OnSameTeam( targ, attacker ) )
+     {
+       if( g_dretchPunt.integer &&
+         targ->client->ps.stats[ STAT_PCLASS ] == PCL_ALIEN_LEVEL0 )
+@@ -1333,9 +1461,13 @@
+     if ( targ->flags & FL_GODMODE && !g_devmapNoGod.integer)
+       return;
+ 
++    // Respawn immunity time
++    if( targ->client && level.time - targ->client->respawnTime < 2000 )
++      return;
++
+     if( level.paused )
+       return;
+-    
++
+     if(targ->s.eType == ET_BUILDABLE && g_cheats.integer && g_devmapNoStructDmg.integer)
+       return;
+   }
+@@ -1387,7 +1519,8 @@
+     take = (int)( (float)take * damagemodifier );
+ 
+     //if boosted poison every attack
+-    if( attacker->client && attacker->client->ps.stats[ STAT_STATE ] & SS_BOOSTED )
++    if( mod != MOD_PLAGUE && mod != MOD_RADIATION &&
++        attacker->client && attacker->client->ps.stats[ STAT_STATE ] & SS_BOOSTED )
+     {
+       if( targ->client->ps.stats[ STAT_PTEAM ] == PTE_HUMANS &&
+           !( targ->client->ps.stats[ STAT_STATE ] & SS_POISONED ) &&
+@@ -1479,7 +1612,20 @@
+       }
+     }
+ 
+-    
++    if( mod != MOD_PLAGUE ) {
++      int drain = take;
++
++      // Vampire relic
++      if( drain > targ->health )
++        drain = targ->health;
++      if( drain > 0 && targ->client &&
++          BG_ClientRelic( attacker->client ) == RLC_VAMPIRE ) {
++        attacker->client->ps.stats[ STAT_HEALTH ] += (drain * 3 + 2) / 4;
++        attacker->health = attacker->client->ps.stats[ STAT_HEALTH ];
++        attacker->lastHealTime = level.time;
++      }
++    }
++
+     //Do the damage
+     targ->health = targ->health - take;
+ 
+Index: src/game/g_active.c
+===================================================================
+--- src/game/g_active.c	(revision 92)
++++ src/game/g_active.c	(working copy)
+@@ -285,9 +285,28 @@
+         ent->client->charging )
+       ChargeAttack( ent, other );
+ 
+-    if( ent->client && other->client )
++    if( ent->client && other->client ) {
+       G_ClientShove( ent, other );
+ 
++      // Plague Relic
++      if( BG_GetRelic( &ent->client->ps ) == RLC_PLAGUE &&
++          BG_GetRelic( &other->client->ps ) != RLC_PLAGUE &&
++          BG_GetRelic( &other->client->ps ) != RLC_IMMUNE &&
++          G_CanTakeRelic( other, RLC_PLAGUE ) )
++      {
++          BG_SetRelic( &other->client->ps, RLC_PLAGUE );
++          other->client->lastPlagueClient = ent;
++      }
++      if( BG_GetRelic( &other->client->ps ) == RLC_PLAGUE &&
++          BG_GetRelic( &ent->client->ps ) != RLC_PLAGUE &&
++          BG_GetRelic( &ent->client->ps ) != RLC_IMMUNE &&
++          G_CanTakeRelic( ent, RLC_PLAGUE ) )
++      {
++        BG_SetRelic( &ent->client->ps, RLC_PLAGUE );
++        ent->client->lastPlagueClient = other;
++      }
++    }
++
+     if( !other->touch )
+       continue;
+ 
+@@ -733,6 +752,23 @@
+         client->ps.stats[ STAT_MISC ] = ammo * LCANNON_TOTAL_CHARGE / 10;
+     }
+ 
++    if( client->ps.weapon == WP_ABUILD || client->ps.weapon == WP_ABUILD2 ||
++        BG_InventoryContainsWeapon( WP_HBUILD, client->ps.stats ) ||
++        BG_InventoryContainsWeapon( WP_HBUILD2, client->ps.stats ) )
++    {
++        //update build timer
++        if( client->ps.stats[ STAT_MISC ] > 0 ) {
++          client->ps.stats[ STAT_MISC ] -= 150;
++
++          // Builder relic
++          if( BG_ClientRelic( client ) == RLC_BUILDER )
++            client->ps.stats[ STAT_MISC ] = 0;
++        }
++
++        if( client->ps.stats[ STAT_MISC ] < 0 )
++          client->ps.stats[ STAT_MISC ] = 0;
++    }
++
+     switch( client->ps.weapon )
+     {
+       case WP_ABUILD:
+@@ -753,12 +789,6 @@
+         }
+ 
+       case WP_BLASTER:
+-        //update build timer
+-        if( client->ps.stats[ STAT_MISC ] > 0 )
+-          client->ps.stats[ STAT_MISC ] -= 100;
+-
+-        if( client->ps.stats[ STAT_MISC ] < 0 )
+-          client->ps.stats[ STAT_MISC ] = 0;
+         break;
+ 
+       default:
+@@ -830,7 +860,8 @@
+ 
+     //replenish alien health
+     if( client->ps.stats[ STAT_PTEAM ] == PTE_ALIENS &&
+-      level.surrenderTeam != PTE_ALIENS )
++        level.surrenderTeam != PTE_ALIENS &&
++        BG_ClientRelic( client ) != RLC_VAMPIRE )
+     {
+       int       entityList[ MAX_GENTITIES ];
+       vec3_t    range = { LEVEL4_REGEN_RANGE, LEVEL4_REGEN_RANGE, LEVEL4_REGEN_RANGE };
+@@ -866,8 +897,20 @@
+           !level.paused &&
+           ( ent->lastDamageTime + ALIEN_REGEN_DAMAGE_TIME ) < level.time )
+       {
+-        ent->health += BG_FindRegenRateForClass( client->ps.stats[ STAT_PCLASS ] ) * modifier;
++        int rate;
++        rate += BG_FindRegenRateForClass( client->ps.stats[ STAT_PCLASS ] ) * modifier;
+ 
++        // Heal relic
++        if( BG_GetRelic( &ent->s ) == RLC_HEAL )
++          rate *= 2;
++
++        if( rate < 1 )
++          rate = 1;
++        if( ent->health + rate > client->ps.stats[ STAT_MAX_HEALTH ] )
++          rate = client->ps.stats[ STAT_MAX_HEALTH ] - ent->health;
++        if( rate > 0 )
++          ent->health += rate;
++
+         // if completely healed, cancel retribution
+         if( ent->health >= client->ps.stats[ STAT_MAX_HEALTH ] )
+         {
+@@ -972,6 +1015,10 @@
+       BG_FindAmmoForWeapon( WP_ALEVEL3_UPG, &maxAmmo, NULL );
+       BG_UnpackAmmoArray( WP_ALEVEL3_UPG, client->ps.ammo, client->ps.powerups, &ammo, NULL );
+ 
++      // Ammo relic
++      if( BG_ClientRelic( client ) == RLC_AMMO )
++        maxAmmo *= 2;
++
+       if( ammo < maxAmmo )
+       {
+         ammo++;
+@@ -979,6 +1026,10 @@
+       }
+     }
+   }
++
++  // Goomba gives full stamina
++  if( BG_ClientRelic( client ) == RLC_GOOMBA )
++    client->ps.stats[ STAT_STAMINA ] = MAX_STAMINA;
+ }
+ 
+ /*
+@@ -1013,13 +1064,14 @@
+ void ClientEvents( gentity_t *ent, int oldEventSequence )
+ {
+   int       i;
+-  int       event;
++  int       event, eventParm;
+   gclient_t *client;
+   int       damage;
+   vec3_t    dir;
+   vec3_t    point, mins;
+   float     fallDistance;
+   pClass_t  class;
++  gentity_t *victim;
+ 
+   client = ent->client;
+   class = client->ps.stats[ STAT_PCLASS ];
+@@ -1030,6 +1082,7 @@
+   for( i = oldEventSequence; i < client->ps.eventSequence; i++ )
+   {
+     event = client->ps.events[ i & ( MAX_PS_EVENTS - 1 ) ];
++    eventParm = client->ps.eventParms[ i & ( MAX_PS_EVENTS - 1 ) ];
+ 
+     switch( event )
+     {
+@@ -1058,6 +1111,35 @@
+         G_Damage( ent, NULL, NULL, dir, point, damage, DAMAGE_NO_LOCDAMAGE, MOD_FALLING );
+         break;
+ 
++      case EV_GOOMBA:
++        victim = g_entities + client->ps.groundEntityNum;
++
++        // Only Goomba players and buildings
++        if( client->ps.groundEntityNum == ENTITYNUM_NONE ||
++            ( victim->s.eType != ET_PLAYER &&
++              victim->s.eType != ET_BUILDABLE ) ||
++            ( victim->s.eFlags & FL_GODMODE ) ||
++            !victim->takedamage ||
++            BG_GetRelic( &ent->s ) != RLC_GOOMBA )
++          break;
++
++        // Figure out the Goomba damage
++        if( client->pers.teamSelection == PTE_ALIENS )
++          damage = client->ps.stats[ STAT_MAX_HEALTH ];
++        else if( client->pers.teamSelection == PTE_HUMANS )
++        {
++          damage = 200;
++          if( BG_InventoryContainsUpgrade( UP_BATTLESUIT, client->ps.stats ) )
++            damage *= 2;
++        }
++        else
++          break;
++
++        G_Damage( victim, ent, ent, dir, point, 10 + damage * eventParm / 255,
++                  0, MOD_GOOMBA );
++        /*Com_Printf( "goomba damage = %d\n", damage * eventParm / 255 );*/
++        break;
++
+       case EV_FIRE_WEAPON:
+         FireWeapon( ent );
+         break;
+@@ -1567,8 +1649,13 @@
+ 
+   client->ps.gravity = g_gravity.value;
+ 
++  // Gravity relic
++  if( BG_GetRelic( &client->ps ) == RLC_GRAVITY )
++    client->ps.gravity /= 6;
++
+   if( BG_InventoryContainsUpgrade( UP_MEDKIT, client->ps.stats ) &&
+-      BG_UpgradeIsActive( UP_MEDKIT, client->ps.stats ) )
++      BG_UpgradeIsActive( UP_MEDKIT, client->ps.stats ) &&
++      BG_ClientRelic( client ) != RLC_VAMPIRE )
+   {
+     //if currently using a medkit or have no need for a medkit now
+     if( client->ps.stats[ STAT_STATE ] & SS_MEDKIT_ACTIVE ||
+@@ -1615,6 +1702,19 @@
+   // set speed
+   client->ps.speed = g_speed.value * BG_FindSpeedForClass( client->ps.stats[ STAT_PCLASS ] );
+ 
++  // Relic speed modifications
++  if( ent->client->sess.sessionTeam != TEAM_SPECTATOR ) {
++
++    // Builder relic
++    if( BG_ClientRelic( client ) == RLC_BUILDER )
++      client->ps.speed /= 2;
++
++    // Ice relic
++    else if( BG_ClientRelic( client ) == RLC_ICE &&
++             client->ps.pm_type != PM_JETPACK )
++      client->ps.speed *= 2;
++  }
++
+   if( client->pers.paused )
+     client->ps.speed = 0;
+ 
+@@ -1851,20 +1951,31 @@
+   }
+ 
+   // Give clients some credit periodically
+-  if( ent->client->lastKillTime + FREEKILL_PERIOD < level.time )
+-  {
+-    if( !g_suddenDeath.integer ) {
++  if( !g_suddenDeath.integer ) {
++    int dps = G_DominationPoints(), uncapped_dps, period;
++    pTeam_t team = ent->client->pers.teamSelection;
++
++    period = FREEKILL_PERIOD;
++    // Slow domination scales the freekill rate polynomially
++    if (dps && !level.dominationTimer) {
++      uncapped_dps = dps - level.dominationPoints[ team ];
++      period += DOMINATION_FK_BONUS +
++                ( DOMINATION_FK_PENALTY - DOMINATION_FK_BONUS ) *
++                uncapped_dps * uncapped_dps / ( dps * dps );
++    }
++
++    if( ent->client->lastKillTime + period < level.time ) {
+       if( ent->client->ps.stats[ STAT_PTEAM ] == PTE_ALIENS )
+         G_AddCreditToClient( ent->client, FREEKILL_ALIEN, qtrue );
+       if( ent->client->ps.stats[ STAT_PTEAM ] == PTE_HUMANS )
+         G_AddCreditToClient( ent->client, FREEKILL_HUMAN, qtrue );
++      ent->client->lastKillTime = level.time;
+     }
+-    ent->client->lastKillTime = level.time;
+   }
+ 
+   // perform once-a-second actions
+   ClientTimerActions( ent, msec );
+-  
++
+   if( ent->suicideTime > 0 && ent->suicideTime < level.time )
+   {
+     ent->flags &= ~FL_GODMODE;
+@@ -1873,6 +1984,9 @@
+ 
+     ent->suicideTime = 0;
+   }
++
++  // Update relic effects
++  G_ClientThink_Relic( ent );
+ }
+ 
+ /*
+Index: src/game/g_buildable.c
+===================================================================
+--- src/game/g_buildable.c	(revision 92)
++++ src/game/g_buildable.c	(working copy)
+@@ -185,8 +185,20 @@
+     return qtrue;
+ 
+   //if this already has power then stop now
+-  if( self->parentNode && self->parentNode->powered )
+-    return qtrue;
++  if( self->parentNode )
++  {
++    // We have to add a special case for domination points because they use
++    // the powered bit to transmit capture status. We cannot use the DCC bit
++    // because it is removed in the backport.
++    if( BG_IsDPoint( self->parentNode->s.modelindex ) )
++    {
++      if( self->parentNode->dominationTeam == PTE_HUMANS &&
++          level.reactorPresent )
++     return qtrue;
++    }
++    else if( self->parentNode->powered )
++      return qtrue;
++  }
+ 
+   //reset parent
+   self->parentNode = NULL;
+@@ -198,18 +210,25 @@
+       continue;
+ 
+     //if entity is a power item calculate the distance to it
+-    if( ( ent->s.modelindex == BA_H_REACTOR || ent->s.modelindex == BA_H_REPEATER ) &&
++    if( ( ent->s.modelindex == BA_H_REACTOR ||
++          ent->s.modelindex == BA_H_REPEATER ||
++          ( ent->s.modelindex >= BA_DPOINT_FIRST &&
++            ent->s.modelindex <= BA_DPOINT_LAST &&
++            ent->dominationTeam == PTE_HUMANS ) ) &&
+         ent->spawned )
+     {
+       VectorSubtract( self->s.origin, ent->s.origin, temp_v );
+       distance = VectorLength( temp_v );
+ 
++      // can be powered by a reactor, repeater, or captured domination point
+       if( distance < minDistance && ent->powered &&
+           ( ( ent->s.modelindex == BA_H_REACTOR &&
+             distance <= REACTOR_BASESIZE ) ||
+           ( ent->s.modelindex == BA_H_REPEATER &&
+-            distance <= REPEATER_BASESIZE ) ) ) {
+-
++            distance <= REPEATER_BASESIZE ) ||
++          ( BG_IsDPoint( ent->s.modelindex ) &&
++            level.reactorPresent && distance <= DOMINATION_RANGE ) ) )
++      {
+           closestPower = ent;
+           minDistance = distance;
+       }
+@@ -405,12 +424,19 @@
+       if( ent->s.eType != ET_BUILDABLE )
+         continue;
+ 
+-      if( ( ent->s.modelindex == BA_A_SPAWN || ent->s.modelindex == BA_A_OVERMIND ) &&
++      if( ( ent->s.modelindex == BA_A_SPAWN ||
++            ent->s.modelindex == BA_A_OVERMIND ||
++            ( ent->s.modelindex >= BA_DPOINT_FIRST &&
++              ent->s.modelindex <= BA_DPOINT_LAST &&
++              ent->dominationTeam == PTE_ALIENS ) ) &&
+           ent->spawned )
+       {
+         VectorSubtract( self->s.origin, ent->s.origin, temp_v );
+         distance = VectorLength( temp_v );
+-        if( distance < minDistance )
++        if( distance < minDistance &&
++            ( ent->s.modelindex < BA_DPOINT_FIRST ||
++              ent->s.modelindex > BA_DPOINT_LAST ||
++              distance < DOMINATION_RANGE ) )
+         {
+           closestSpawn = ent;
+           minDistance = distance;
+@@ -1963,7 +1989,11 @@
+         if( player->client && player->client->ps.stats[ STAT_PTEAM ] == PTE_HUMANS )
+         {
+           if( player->health < player->client->ps.stats[ STAT_MAX_HEALTH ] &&
+-              player->client->ps.pm_type != PM_DEAD )
++              player->client->ps.pm_type != PM_DEAD &&
++              ( BG_ClientRelic( player->client ) != RLC_HEAL ||
++                player->health <
++                player->client->ps.stats[ STAT_MAX_HEALTH ] * 3 / 4 ) &&
++              BG_ClientRelic( player->client ) != RLC_VAMPIRE )
+           {
+             self->enemy = player;
+ 
+@@ -1990,6 +2020,8 @@
+     }
+     else if( self->enemy ) //heal!
+     {
++      int max_health = self->enemy->client->ps.stats[ STAT_MAX_HEALTH ];
++
+       if( self->enemy->client && self->enemy->client->ps.stats[ STAT_STATE ] & SS_POISONED )
+         self->enemy->client->ps.stats[ STAT_STATE ] &= ~SS_POISONED;
+ 
+@@ -1998,13 +2030,16 @@
+ 
+       self->enemy->health++;
+ 
++      // Delay the next heal if the player is handicapped
++      self->nextthink += 100 - self->enemy->client->pers.maxHealth;
++
+       //if they're completely healed, give them a medkit
+-      if( self->enemy->health >= self->enemy->client->ps.stats[ STAT_MAX_HEALTH ] &&
++      if( self->enemy->health >= max_health &&
+           !BG_InventoryContainsUpgrade( UP_MEDKIT, self->enemy->client->ps.stats ) )
+         BG_AddUpgradeToInventory( UP_MEDKIT, self->enemy->client->ps.stats );
+ 
+       // if completely healed, cancel retribution
+-      if( self->enemy->health >= self->enemy->client->ps.stats[ STAT_MAX_HEALTH ] )
++      if( self->enemy->health >= max_health )
+       {
+         for( i = 0; i < MAX_CLIENTS; i++ )
+           self->enemy->client->tkcredits[ i ] = 0;
+@@ -2372,9 +2407,294 @@
+   }
+ }
+ 
++//==================================================================================
+ 
++/*
++================
++Domination_Capture
+ 
++Helper function to clear captured state
++================
++*/
++static void Domination_Clear( gentity_t *self )
++{
++  if( self->dominationTeam != PTE_NONE )
++  {
++    int i;
++    gentity_t *ent;
+ 
++    self->dominationTeam = PTE_NONE;
++
++    // We need to update all buildings depending on us for power/creep
++    for( i = 0, ent = g_entities + i; i < level.num_entities; i++, ent++ )
++      if( ent->inuse && ent->parentNode == self )
++        ent->parentNode = NULL;
++  }
++  self->health = 0.;
++  self->powered = qfalse;
++  self->dominationTime = 0;
++}
++
++/*
++================
++Domination_Capture
++
++Helper function to set captured state
++================
++*/
++static void Domination_Capture( gentity_t *self )
++{
++  self->powered = qtrue;
++  if( self->dominationAttacking == PTE_ALIENS )
++  {
++    self->deconstruct = qfalse;
++    trap_SendServerCommand( -1, va( "print \"^1Aliens^7 dominate %s^7!\n\"",
++                            self->dominationName ) );
++    if( self->dominationClient >= 0 )
++    {
++      if( g_domination.integer != 2 )
++        G_AddCreditToClient( g_entities[ self->dominationClient ].client,
++                             FREEKILL_ALIEN, qtrue );
++      G_LogPrintf("DominationCapture: %i alien \"%s\"\n",
++                  self->dominationClient, self->dominationName);
++    }
++  }
++  else if( self->dominationAttacking == PTE_HUMANS )
++  {
++    self->deconstruct = qtrue;
++    trap_SendServerCommand( -1, va( "print \"^5Humans^7 dominate %s^7!\n\"",
++                            self->dominationName ) );
++    if( self->dominationClient >= 0 )
++    {
++      if( g_domination.integer != 2 )
++       G_AddCreditToClient( g_entities[ self->dominationClient ].client,
++                             FREEKILL_HUMAN, qtrue );
++      G_LogPrintf("DominationCapture: %i human \"%s\"\n",
++                  self->dominationClient, self->dominationName);
++    }
++  }
++  self->dominationTeam = self->dominationAttacking;
++  self->dominationTime = DOMINATION_TIME;
++  self->dominationAttacking = PTE_NONE;
++}
++
++/*
++================
++Domination_Think
++Domination points broadcast all changes.
++The powered and mark bits are hijacked to represent captured state and capture
++team respectively.
++================
++*/
++static void Domination_Think( gentity_t *self )
++{
++  vec3_t range = { DOMINATION_RANGE, DOMINATION_RANGE, DOMINATION_RANGE },
++         mins, maxs, dir;
++  int i, num, balance, think_interval, players[ PTE_NUM_TEAMS ],
++      client[ PTE_NUM_TEAMS ], entityList[ MAX_GENTITIES ];
++  gentity_t *ent;
++  double distance;
++
++  think_interval = BG_FindNextThinkForBuildable( self->s.modelindex );
++  self->nextthink = level.time + think_interval;
++
++  // Unlink when domination is off
++  if( !g_domination.integer ) {
++    if( self->r.linked && !g_cheats.integer )
++      trap_UnlinkEntity( self );
++    else if( !self->r.linked && g_cheats.integer )
++      trap_LinkEntity( self );
++    Domination_Clear( self );
++    return;
++  } else if( !self->r.linked )
++    trap_LinkEntity( self );
++
++  // Do not capture when cheats are on
++  if( g_cheats.integer )
++    return;
++
++  players[ PTE_ALIENS ] = 0;
++  players[ PTE_HUMANS ] = 0;
++  client[ PTE_ALIENS ] = -1;
++  client[ PTE_HUMANS ] = -1;
++
++  VectorAdd( self->s.origin, range, maxs );
++  VectorSubtract( self->s.origin, range, mins );
++
++  // Count all players and buildables in domination range
++  balance = 0;
++  num = trap_EntitiesInBox( mins, maxs, entityList, MAX_GENTITIES );
++  for( i = 0; i < num; i++ )
++  {
++    pTeam_t team;
++    float weight = 0.;
++
++    ent = &g_entities[ entityList[ i ] ];
++
++    // Must be alive
++   if( ent->health <= 0 )
++      continue;
++
++    // Count eligible entities and record the first player for each team
++    if( ent->s.eType == ET_BUILDABLE ) {
++      team = ent->biteam;
++      if( !ent->spawned || team == BIT_NONE )
++        continue;
++
++      // Must be visible
++      if( !G_Visible( self, ent ) )
++        continue;
++
++      // Instant domination: buildables secure a point
++      if( g_domination.integer == 2 ) {
++        if( team == self->dominationTeam ) {
++          balance = team == BIT_HUMANS ? 1 : -1;
++          break;
++        }
++        continue;
++      }
++
++      // Slow domination: build time is used for weight
++      weight = BG_FindBuildTimeForBuildable( ent->s.modelindex ) /
++               DOMINATION_WS_BUILDABLE;
++      if( team == PTE_ALIENS )
++        weight = -weight;
++      else if( team != PTE_HUMANS )
++        weight = 0;
++    } else if( ent->s.eType == ET_PLAYER ) {
++      team = ent->client->pers.teamSelection;
++
++      // Instant domination: each player counts as one point
++      if( g_domination.integer == 2 ) {
++        if( Distance( ent->s.origin, self->s.origin ) <
++            DOMINATION_RANGE_INSTANT )
++          weight = team == PTE_HUMANS ? 1 : -1;
++        else
++          continue;
++      }
++
++      // Must be visible
++      else if( !G_Visible( self, ent ) )
++        continue;
++
++      // Slow domination: value is used for weight
++      else if( team == PTE_HUMANS )
++        weight = DOMINATION_WS_HUMAN * BG_GetValueOfHuman( &ent->client->ps );
++      else if( team == PTE_ALIENS )
++        weight = -BG_FindValueOfClass( ent->client->ps.stats[ STAT_PCLASS ] ) /
++                 DOMINATION_WS_ALIEN;
++      else
++        continue;
++      if( client[ team ] < 0 )
++        client[ team ] = entityList[ i ];
++    } else
++      continue;
++
++    // Slow domination: square fall-off with distance
++    if( g_domination.integer != 2 ) {
++      VectorSubtract( self->s.origin, ent->s.origin, dir );
++      distance = VectorLength( dir );
++      if( distance >= DOMINATION_RANGE )
++        continue;
++      weight *= sqrt( DOMINATION_RANGE - distance ) / DOMINATION_RANGE_SQRT;
++      if( weight > -1.f && weight < 1.f )
++        continue;
++    }
++
++    balance += weight;
++    players[ team ]++;
++  }
++
++  // Instant domination: clear and capture
++  if( g_domination.integer == 2 ) {
++    if( !balance && ( players[ PTE_ALIENS ] || players[ PTE_HUMANS ] ) ) {
++      Domination_Clear( self );
++    } else if( balance > 0 && self->dominationTeam != PTE_HUMANS ) {
++      self->dominationAttacking = PTE_HUMANS;
++      Domination_Capture( self );
++    } else if( balance < 0 && self->dominationTeam != PTE_ALIENS ) {
++      self->dominationAttacking = PTE_ALIENS;
++      Domination_Capture( self );
++    }
++    if( self->dominationTeam == PTE_NONE )
++      self->health = 0.;
++    else
++      self->health = DOMINATION_HEALTH;
++    return;
++  }
++
++  // Launch an attack
++  if( self->dominationAttacking == PTE_NONE && level.time > self->timestamp )
++  {
++    // More aliens than humans = alien attack
++    if( self->dominationTeam != PTE_ALIENS && balance < 0 )
++    {
++      self->dominationAttacking = PTE_ALIENS;
++      self->timestamp = level.time + DOMINATION_COOLDOWN;
++      trap_SendServerCommand( -1, va( "print \"^1Aliens^7 attacking %s^7!\n\"",
++                              self->dominationName ) );
++      if( self->dominationTeam == PTE_NONE )
++        self->deconstruct = qfalse;
++      self->dominationClient = client[ PTE_ALIENS ];
++    }
++
++    // More humans than aliens = human attack
++    else if( self->dominationTeam != PTE_HUMANS && balance > 0 )
++    {
++      self->dominationAttacking = PTE_HUMANS;
++      self->timestamp = level.time + DOMINATION_COOLDOWN;
++      trap_SendServerCommand( -1, va( "print \"^5Humans^7 attacking %s^7!\n\"",
++                              self->dominationName ) );
++      if( self->dominationTeam == PTE_NONE )
++        self->deconstruct = qtrue;
++      self->dominationClient = client[ PTE_HUMANS ];
++    }
++  }
++
++  // Neutral and not under attack, decrement the domination time
++  if( self->dominationTeam == PTE_NONE && !players[ PTE_HUMANS ] &&
++      !players[ PTE_ALIENS ] )
++    self->dominationTime -= think_interval;
++
++  // Claimed and not under attack, increment the domination time
++  else if( ( self->dominationTeam == PTE_HUMANS && !players[ PTE_ALIENS ] ) ||
++           ( self->dominationTeam == PTE_ALIENS && !players[ PTE_HUMANS ] ) )
++    self->dominationTime += think_interval;
++
++  // Increment the domination timer according to the balance shift
++  else if( self->dominationTeam == PTE_HUMANS ||
++           ( self->dominationTeam == PTE_NONE &&
++             self->dominationAttacking == PTE_HUMANS ) )
++    self->dominationTime += think_interval * balance / DOMINATION_WS_NORMAL;
++  else if( self->dominationTeam == PTE_ALIENS ||
++           ( self->dominationTeam == PTE_NONE &&
++             self->dominationAttacking == PTE_ALIENS ) )
++    self->dominationTime += think_interval * -balance / DOMINATION_WS_NORMAL;
++
++  // Domination cleared or completed
++  if( self->dominationTime <= 0 ) {
++    Domination_Clear( self );
++    if( !players[ self->dominationAttacking ] )
++      self->dominationAttacking = PTE_NONE;
++    else
++      self->deconstruct = self->dominationAttacking == PTE_HUMANS;
++  } else if( self->dominationTime >= DOMINATION_TIME ) {
++    self->dominationTime = DOMINATION_TIME;
++   if( self->dominationTeam == PTE_NONE )
++      Domination_Capture( self );
++    else
++      self->dominationAttacking = PTE_NONE;
++  }
++
++  // Use health to transmit domination progress
++  self->health = DOMINATION_HEALTH * self->dominationTime / DOMINATION_TIME;
++}
++
++void Domination_Die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int damage, int mod )
++{
++}
++
++
+ //==================================================================================
+ 
+ 
+@@ -3385,6 +3705,38 @@
+   if( reason == IBE_NONE && ( tr2.fraction < 1.0 || tr3.fraction < 1.0 ) )
+     return IBE_NOROOM;
+ 
++  // Cannot build a reactor or an overmind within range of a domination point.
++  // Moving completely to a domination point is prevented by this.
++  if( g_domination.integer &&
++      ( buildable == BA_H_REACTOR || buildable == BA_A_OVERMIND ) )
++  {
++    for ( i = 1, tempent = g_entities + i; i < level.num_entities; i++, tempent++ )
++    {
++      if( tempent->s.eType != ET_BUILDABLE )
++        continue;
++
++      if( BG_IsDPoint( tempent->s.modelindex ) )
++      {
++        vec3_t dir;
++        float distance;
++
++        VectorSubtract( origin, tempent->s.origin, dir );
++        distance = VectorLength( dir );
++        if( distance < DOMINATION_NOBUILD )
++          return IBE_NEARDP;
++      }
++    }
++  }
++
++
++  if( BG_FindTeamForBuildable( buildable ) == BIT_NONE )
++  {
++    // team-less buildables can only be built with cheats on, but otherwise
++    // have no restrictions
++    if( !g_cheats.integer )
++      reason = IBE_PERMISSION;
++  }
++
+   if( reason != IBE_NONE )
+     level.numBuildablesForRemoval = 0;
+ 
+@@ -3604,6 +3956,13 @@
+       built->count = -1;
+       break;
+ 
++    case BA_RELIC_FOUNT:
++      built->think = G_RelicFountThink;
++      built->takedamage = qfalse;
++      built->dontSpawnRelic = qfalse;
++      built->timestamp = level.time;
++      break;
++
+     default:
+       //erk
+       break;
+@@ -3628,12 +3987,34 @@
+     built->builtBy = -1;
+ 
+   G_SetOrigin( built, origin );
+-  
++
++  // Setup domination point
++  if( buildable >= BA_DPOINT_FIRST && buildable <= BA_DPOINT_LAST )
++  {
++      char name[ MAX_STRING_CHARS ];
++
++      built->takedamage = qfalse;
++      built->dominationTeam = PTE_NONE;
++      built->dominationAttacking = PTE_NONE;
++      built->timestamp = level.time;
++      built->think = Domination_Think;
++      built->die = Domination_Die;
++      built->r.svFlags |= SVF_BROADCAST; // broadcast changes to everyone
++      built->flags |= FL_GODMODE;
++      if( Team_GetLocationMsg( built, name, sizeof( name ) ) )
++        Com_sprintf( built->dominationName, sizeof( built->dominationName ),
++                     "%s^7 (%c)", name, 'A' + buildable - BA_DPOINT_FIRST );
++      else
++        Com_sprintf( built->dominationName, sizeof( built->dominationName ),
++                     "point %c", 'A' + buildable - BA_DPOINT_FIRST );
++  }
++
+   // gently nudge the buildable onto the surface :)
+   VectorScale( normal, -50.0f, built->s.pos.trDelta );
+ 
+-  // set turret angles
+-  VectorCopy( builder->s.angles2, built->s.angles2 );
++  // set turret angles but not for relic founts built by players
++  if( builder->s.eType != ET_PLAYER || buildable != BA_RELIC_FOUNT )
++    VectorCopy( builder->s.angles2, built->s.angles2 );
+ 
+   VectorCopy( angles, built->s.angles );
+   built->s.angles[ PITCH ] = 0.0f;
+@@ -3671,9 +4052,10 @@
+   if( built->builtBy >= 0 )
+     G_SetBuildableAnim( built, BANIM_CONSTRUCT1, qtrue );
+ 
+-  trap_LinkEntity( built );
+-  
+-  
++  // Do not link Domination points if domination is off
++  if( !BG_IsDPoint( buildable ) || g_domination.integer )
++    trap_LinkEntity( built );
++
+   if( builder->client ) 
+   {
+      builder->client->pers.statscounters.structsbuilt++;
+@@ -3886,6 +4268,10 @@
+       G_TriggerMenu( ent->client->ps.clientNum, MN_H_RPTWARN2 );
+       return qfalse;
+ 
++    case IBE_NEARDP:
++      G_TriggerMenu( ent->client->ps.clientNum, MN_NEARDP );
++      return qfalse;
++
+     default:
+       break;
+   }
+Index: src/game/g_main.c
+===================================================================
+--- src/game/g_main.c	(revision 92)
++++ src/game/g_main.c	(working copy)
+@@ -23,7 +23,8 @@
+ 
+ #include "g_local.h"
+ 
+-#define QVM_NAME       "Slackers QVM" " (Lakitu7 5.5)"
++#define QVM_NAME       "Slackers QVM" QVM_MODNAME " (Lakitu7 5.5)"
++#define QVM_MODNAME    " (Arcade 15)"
+ #define QVM_VERSIONNUM      "1.1"
+ 
+ level_locals_t  level;
+@@ -80,6 +81,13 @@
+ vmCvar_t  g_logFile;
+ vmCvar_t  g_logFileSync;
+ vmCvar_t  g_blood;
++vmCvar_t  g_domination;
++vmCvar_t  g_dominationTime;
++vmCvar_t  g_relics;
++vmCvar_t  g_relicFountsOnly;
++vmCvar_t  g_relicSpawn;
++vmCvar_t  g_relic[ RLC_NUM_RELICS ];
++vmCvar_t  g_popupLines[16];
+ vmCvar_t  g_podiumDist;
+ vmCvar_t  g_podiumDrop;
+ vmCvar_t  g_allowVote;
+@@ -306,6 +314,55 @@
+   { &g_motd, "g_motd", "", 0, 0, qfalse },
+   { &g_blood, "com_blood", "1", 0, 0, qfalse },
+ 
++  // Domination cvars
++  { &g_domination, "g_domination", "1", CVAR_ARCHIVE|CVAR_SYSTEMINFO, 0, qfalse  },
++  { &g_dominationTime, "g_dominationTime", "10", CVAR_ARCHIVE, 0, qfalse  },
++
++  // Relic cvars
++  { &g_relics, "g_relics", "0", CVAR_ARCHIVE, 0, qfalse },
++  { &g_relicFountsOnly, "g_relicFountsOnly", "0", CVAR_ARCHIVE, 0, qfalse },
++  { &g_relicSpawn, "g_relicSpawn", "0", CVAR_ARCHIVE, 0, qfalse },
++  { g_relic + RLC_DOUBLE, "g_relicDouble", "1", CVAR_ARCHIVE, 0, qfalse },
++  { g_relic + RLC_HEAL, "g_relicHeal", "1", CVAR_ARCHIVE, 0, qfalse },
++  { g_relic + RLC_IMMUNE, "g_relicImmune", "1", CVAR_ARCHIVE, 0, qfalse },
++  { g_relic + RLC_AMMO, "g_relicAmmo", "1", CVAR_ARCHIVE, 0, qfalse },
++  { g_relic + RLC_VAMPIRE, "g_relicVampire", "1", CVAR_ARCHIVE, 0, qfalse },
++  { g_relic + RLC_BUILDER, "g_relicBuilder", "1", CVAR_ARCHIVE, 0, qfalse },
++  { g_relic + RLC_HALF, "g_relicHalf", "1", CVAR_ARCHIVE, 0, qfalse },
++  { g_relic + RLC_RESURRECT, "g_relicResurrect", "1", CVAR_ARCHIVE, 0, qfalse },
++  { g_relic + RLC_INVISIBLE, "g_relicInvisible", "1", CVAR_ARCHIVE, 0, qfalse },
++  { g_relic + RLC_RADIATION, "g_relicRadiation", "1", CVAR_ARCHIVE, 0, qfalse },
++  { g_relic + RLC_GRAVITY, "g_relicGravity", "1", CVAR_ARCHIVE, 0, qfalse },
++  { g_relic + RLC_ICE, "g_relicIce", "1", CVAR_ARCHIVE, 0, qfalse },
++  { g_relic + RLC_BREAKER, "g_relicBreaker", "1", CVAR_ARCHIVE, 0, qfalse },
++  { g_relic + RLC_BOUNTY, "g_relicBounty", "1", CVAR_ARCHIVE, 0, qfalse },
++  { g_relic + RLC_UNKNOWN, "g_relicUnknown", "1", CVAR_ARCHIVE, 0, qfalse },
++  { g_relic + RLC_REVERSE, "g_relicReverse", "1", CVAR_ARCHIVE, 0, qfalse },
++  { g_relic + RLC_GOOMBA, "g_relicGoomba", "1", CVAR_ARCHIVE, 0, qfalse },
++  { g_relic + RLC_SILENT, "g_relicSilent", "1", CVAR_ARCHIVE, 0, qfalse },
++  { g_relic + RLC_PLAGUE, "g_relicPlague", "1", CVAR_ARCHIVE, 0, qfalse },
++  { g_relic + RLC_MINI, "g_relicMini", "1", CVAR_ARCHIVE, 0, qfalse },
++  { g_relic + RLC_TRANSLOCATE, "g_relicTranslocate", "1", CVAR_ARCHIVE, 0, qfalse },
++  { g_relic + RLC_PUSH, "g_relicPush", "1", CVAR_ARCHIVE, 0, qfalse },
++
++  // Help popup
++  { g_popupLines, "popupline0", "Welcome to Arcade mod!", CVAR_SYSTEMINFO | CVAR_ARCHIVE, 0, qfalse },
++  { g_popupLines + 1, "popupline1", "", CVAR_SYSTEMINFO | CVAR_ARCHIVE, 0, qfalse },
++  { g_popupLines + 2, "popupline2", "", CVAR_SYSTEMINFO | CVAR_ARCHIVE, 0, qfalse },
++  { g_popupLines + 3, "popupline3", "", CVAR_SYSTEMINFO | CVAR_ARCHIVE, 0, qfalse },
++  { g_popupLines + 4, "popupline4", "", CVAR_SYSTEMINFO | CVAR_ARCHIVE, 0, qfalse },
++  { g_popupLines + 5, "popupline5", "", CVAR_SYSTEMINFO | CVAR_ARCHIVE, 0, qfalse },
++  { g_popupLines + 6, "popupline6", "", CVAR_SYSTEMINFO | CVAR_ARCHIVE, 0, qfalse },
++  { g_popupLines + 7, "popupline7", "", CVAR_SYSTEMINFO | CVAR_ARCHIVE, 0, qfalse },
++  { g_popupLines + 8, "popupline8", "", CVAR_SYSTEMINFO | CVAR_ARCHIVE, 0, qfalse },
++  { g_popupLines + 9, "popupline9", "", CVAR_SYSTEMINFO | CVAR_ARCHIVE, 0, qfalse },
++  { g_popupLines + 10, "popupline10", "", CVAR_SYSTEMINFO | CVAR_ARCHIVE, 0, qfalse },
++  { g_popupLines + 11, "popupline11", "", CVAR_SYSTEMINFO | CVAR_ARCHIVE, 0, qfalse },
++  { g_popupLines + 12, "popupline12", "", CVAR_SYSTEMINFO | CVAR_ARCHIVE, 0, qfalse },
++  { g_popupLines + 13, "popupline13", "", CVAR_SYSTEMINFO | CVAR_ARCHIVE, 0, qfalse },
++  { g_popupLines + 14, "popupline14", "", CVAR_SYSTEMINFO | CVAR_ARCHIVE, 0, qfalse },
++  { g_popupLines + 15, "popupline15", "", CVAR_SYSTEMINFO | CVAR_ARCHIVE, 0, qfalse },
++
+   { &g_podiumDist, "g_podiumDist", "80", 0, 0, qfalse },
+   { &g_podiumDrop, "g_podiumDrop", "70", 0, 0, qfalse },
+ 
+@@ -633,6 +690,9 @@
+ 
+   if( remapped )
+     G_RemapTeamShaders( );
++
++  // check some things
++  level.dominationTimeModCount = g_dominationTime.modificationCount;
+ }
+ 
+ /*
+@@ -769,6 +829,28 @@
+     G_MapConfigs( map );
+   }
+ 
++  // Should be run from the mod directory
++  {
++    char fs_game[ MAX_CVAR_VALUE_STRING ];
++
++    trap_Cvar_VariableStringBuffer( "fs_game", fs_game, sizeof( fs_game ) );
++    G_LogPrintf( "fs_game: %s\n", fs_game );
++    if( !Q_stricmp( fs_game, "base" ) || !fs_game[ 0 ] ) {
++      Com_Error( ERR_FATAL,
++        "Arcade mod should not be installed in the base folder! "
++        "Please move the mod client pk3 and vm/game.qvm to "
++        "the tremulous/arcade/ folder instead. The server will not "
++        "run until you do so.");
++      return;
++    }
++    if( Q_stricmp( fs_game, "arcade") )
++      Com_Printf( S_COLOR_YELLOW "WARNING: Arcade mod should be installed in "
++        "the arcade/ folder. You are running the mod from the '%s' folder "
++        "instead. Doing this will force players to redownload the mod into a "
++        "different folder. Please move the pk3 and vm/game.qvm to the correct "
++        "folder!\n", fs_game );
++  }
++
+   // we're done with g_mapConfigs, so reset this for the next map
+   trap_Cvar_Set( "g_mapConfigsLoaded", "0" );
+ 
+@@ -848,7 +930,10 @@
+   G_CountSpawns( );
+ 
+   G_ResetPTRConnections( );
+-  
++
++  // Relic initialization
++  G_RelicInit( );
++
+   if(g_lockTeamsAtStart.integer)
+   {
+     level.alienTeamLocked=qtrue;
+@@ -1273,7 +1358,7 @@
+ */
+ int G_TimeTilSuddenDeath( void )
+ {
+-  if( (!g_suddenDeathTime.integer && level.suddenDeathBeginTime==0 ) || level.suddenDeathBeginTime<0 )
++  if( ( !g_suddenDeathTime.integer && level.suddenDeathBeginTime==0 || G_DominationPoints() || g_cheats.integer ) || level.suddenDeathBeginTime<0 )
+     return 999999999; // Always some time away
+ 
+   return ( ( level.suddenDeathBeginTime ) - ( level.time - level.startTime ) );
+@@ -1295,9 +1380,19 @@
+   buildable_t buildable;
+   gentity_t   *ent;
+   int         localHTP = g_humanBuildPoints.integer,
+-              localATP = g_alienBuildPoints.integer;
++              localATP = g_alienBuildPoints.integer,
++              dps = G_DominationPoints();
+ 
+-  // g_suddenDeath sets what state we want it to be.  
++  // Calculate build points according to domination point ownership.
++  // There is no sudden death with domination mode.
++  // A team must hold half of all domination points to have normal BP.
++  // Domination points can add up to half the normal BP to a team's BP.
++  if ( dps > 0 && !g_cheats.integer )
++  {
++    localHTP *= 0.5 + (double)level.dominationPoints[ PTE_HUMANS ] / dps;
++    localATP *= 0.5 + (double)level.dominationPoints[ PTE_ALIENS ] / dps;
++  }
++  // g_suddenDeath sets what state we want it to be.
+   // level.suddenDeath says whether we've calculated BPs at the 'start' of SD or not
+ 
+   // reset if SD was on, but now it's off
+@@ -1314,8 +1409,13 @@
+ 
+   if(!level.suddenDeath)
+   {
+-    if(g_suddenDeath.integer || G_TimeTilSuddenDeath( ) <= 0 ) //Conditions to enter SD
++    if ( dps > 0 && !g_cheats.integer )
+     {
++      localHTP *= 0.5 + (double)level.dominationPoints[ PTE_HUMANS ] / dps;
++      localATP *= 0.5 + (double)level.dominationPoints[ PTE_ALIENS ] / dps;
++    }
++    else if( g_suddenDeath.integer || G_TimeTilSuddenDeath( ) <= 0 && dps < 1 ) //Conditions to enter SD
++    {
+       //begin sudden death
+       if( level.suddenDeathWarning < TW_PASSED )
+       {
+@@ -1350,7 +1450,7 @@
+ 
+         level.suddenDeathWarning = TW_PASSED;
+       }
+-    }  
++    }
+     else 
+     {
+        //warn about sudden death
+@@ -2464,6 +2564,22 @@
+ 
+ 
+ /*
++=============
++CheckTournament
++
++Once a frame, check for changes in tournement player state
++=============
++*/
++void CheckTournament( void ) {
++  if( level.numPlayingClients == 0 )
++    return;
++
++  if( g_cheats.integer )
++    return;
++}
++
++
++/*
+ ==================
+ CheckVote
+ ==================
+@@ -2721,6 +2837,154 @@
+ 
+ /*
+ ==================
++G_DominationTimer
++==================
++*/
++void G_DominationTimer( int clientnum )
++{
++  if( g_dominationTime.integer > 0 ) {
++    if( level.dominationTimer == PTE_HUMANS )
++      trap_SendServerCommand( clientnum,
++                              va( "domtime %d %d %d", DT_HUMANS,
++                                  level.dominationTime[ PTE_ALIENS ],
++                                  level.time +
++                                  level.dominationTime[ PTE_HUMANS ] ) );
++    else if( level.dominationTimer == PTE_ALIENS )
++      trap_SendServerCommand( clientnum,
++                              va( "domtime %d %d %d", DT_ALIENS,
++                                  level.time +
++                                  level.dominationTime[ PTE_ALIENS ],
++                                  level.dominationTime[ PTE_HUMANS ] ) );
++    else
++      trap_SendServerCommand( clientnum,
++                              va( "domtime %d %d %d", DT_NONE,
++                                  level.dominationTime[ PTE_ALIENS ],
++                                  level.dominationTime[ PTE_HUMANS ] ) );
++  } else
++    trap_SendServerCommand( clientnum, "domtime 0" );
++  /*Com_Printf("%d: domtime %d %d %d %d (%d %d %d)\n", clientnum, level.framenum,
++              level.dominationTimer, level.dominationTime[ PTE_HUMANS ],
++              level.dominationTime[ PTE_ALIENS ],
++              level.dominationPoints[ PTE_NONE ],
++              level.dominationPoints[ PTE_ALIENS ],
++              level.dominationPoints[ PTE_HUMANS ]);*/
++}
++
++/*
++==================
++CheckDomination
++==================
++*/
++static void CheckDomination( int msec )
++{
++  int i;
++  pTeam_t otherTeam;
++
++  // Count domination points
++  level.dominationPoints[ PTE_NONE ] = 0;
++  level.dominationPoints[ PTE_ALIENS ] = 0;
++  level.dominationPoints[ PTE_HUMANS ] = 0;
++  for( i = 1; i < MAX_GENTITIES; i++ )
++    if( g_entities[ i ].s.eType == ET_BUILDABLE &&
++        BG_IsDPoint( g_entities[ i ].s.modelindex ) )
++      level.dominationPoints[ g_entities[ i ].dominationTeam ]++;
++
++  // Reset the domination time
++  if( g_dominationTime.modificationCount != level.dominationTimeModCount )
++  {
++    level.dominationTimeModCount = g_dominationTime.modificationCount;
++    level.dominationTime[ PTE_ALIENS ] = g_dominationTime.integer * 60 * 1000;
++    level.dominationTime[ PTE_HUMANS ] = g_dominationTime.integer * 60 * 1000;
++    if( g_dominationTime.integer > 0 )
++      level.dominationTimer = DT_NONE;
++    else
++      level.dominationTimer = DT_OFF;
++    G_DominationTimer( -1 );
++    return;
++  }
++
++  // There are no domination points, cheats are on, or the timer is off
++  if( level.dominationPoints[ PTE_NONE ] +
++      level.dominationPoints[ PTE_ALIENS ] +
++      level.dominationPoints[ PTE_HUMANS ] == 0 ||
++      g_cheats.integer ||
++      g_dominationTime.integer < 1 )
++  {
++    level.dominationTimer = DT_OFF;
++    return;
++  }
++
++  // Reset the timer if it was off
++  if( level.dominationTimer == DT_OFF )
++  {
++    level.dominationTimer = DT_NONE;
++    level.dominationTime[ PTE_ALIENS ] = g_dominationTime.integer * 60 * 1000;
++    level.dominationTime[ PTE_HUMANS ] = g_dominationTime.integer * 60 * 1000;
++  }
++
++  // One team is dominating
++  if( level.dominationTimer == PTE_ALIENS )
++    otherTeam = PTE_HUMANS;
++  else if( level.dominationTimer == PTE_HUMANS )
++    otherTeam = PTE_ALIENS;
++
++  // Domination just started
++  else
++  {
++    if( !level.dominationPoints[ PTE_NONE ] &&
++        level.dominationPoints[ PTE_ALIENS ] &&
++        !level.dominationPoints[ PTE_HUMANS ] )
++    {
++      level.dominationTimer = DT_ALIENS;
++      G_DominationTimer( -1 );
++    }
++    else if( !level.dominationPoints[ PTE_NONE ] &&
++             !level.dominationPoints[ PTE_ALIENS ] &&
++             level.dominationPoints[ PTE_HUMANS ] )
++    {
++      level.dominationTimer = DT_HUMANS;
++      G_DominationTimer( -1 );
++    }
++    else
++      level.dominationTimer = DT_NONE;
++    return;
++  }
++
++  // Domination stopped by a clear
++  if( level.dominationPoints[ PTE_NONE ] )
++  {
++    level.dominationTimer = DT_NONE;
++    G_DominationTimer( -1 );
++    return;
++  }
++
++  // Domination reversed or stopped by a capture
++  if( level.dominationPoints[ otherTeam ] )
++  {
++    if( !level.dominationPoints[ level.dominationTimer ] )
++      level.dominationTimer = otherTeam;
++    else
++      level.dominationTimer = DT_NONE;
++    G_DominationTimer( -1 );
++    return;
++  }
++
++  // Decrement domination time
++  level.dominationTime[ level.dominationTimer ] -= msec;
++
++  // Domination victory
++  if( level.dominationTime[ level.dominationTimer ] < 1 )
++  {
++    if( level.dominationTimer == PTE_HUMANS )
++      level.uncondHumanWin = qtrue;
++    else if( level.dominationTimer == PTE_ALIENS )
++      level.uncondAlienWin = qtrue;
++  }
++}
++
++
++/*
++==================
+ CheckCvars
+ ==================
+ */
+@@ -2757,6 +3021,10 @@
+       if( ent->s.eType != ET_BUILDABLE )
+         continue;
+ 
++      // Domination points use deconstruct flag to pass team, don't mess with it
++      if( BG_IsDPoint( ent->s.modelindex) )
++        continue;
++
+       ent->deconstruct = qfalse;
+     }
+   }
+@@ -2925,6 +3193,12 @@
+       continue;
+     }
+ 
++    if( ent->s.eType == ET_RELIC )
++    {
++      G_RelicThink( ent );
++      continue;
++    }
++
+     if( ent->s.eType == ET_CORPSE || ent->physicsObject )
+     {
+       G_Physics( ent, msec );
+@@ -2972,6 +3246,12 @@
+   G_CalculateAvgPlayers( );
+   G_UpdateZaps( msec );
+ 
++  // Per-frame global relic effects
++  G_RelicRunFrame( );
++
++  // see if it is time to do a tournament restart
++  CheckTournament();
++
+   // see if it is time to end the level
+   CheckExitRules( );
+ 
+@@ -2985,6 +3265,9 @@
+   CheckTeamVote( PTE_HUMANS );
+   CheckTeamVote( PTE_ALIENS );
+ 
++  // Domination time etc
++  CheckDomination( msec );
++
+   // for tracking changes
+   CheckCvars( );
+ 
+Index: src/game/bg_pmove.c
+===================================================================
+--- src/game/bg_pmove.c	(revision 92)
++++ src/game/bg_pmove.c	(working copy)
+@@ -1592,7 +1592,57 @@
+   pm->ps->bobCycle = 0;
+ }
+ 
++/*
++=================
++PM_Goomba
+ 
++Watered down version of PM_CrashLand for Goomba landings
++=================
++*/
++static void PM_Goomba( void )
++{
++  float   delta;
++  float   dist;
++  float   vel, acc;
++  float   t;
++  float   a, b, c, den;
++
++  // Must carry a Goomba relic and have hit a body
++  if( BG_GetRelic( pm->ps ) != RLC_GOOMBA ||
++      !( pml.groundTrace.contents & CONTENTS_BODY ) )
++    return;
++
++  // calculate the exact velocity on landing
++  dist = pm->ps->origin[ 2 ] - pml.previous_origin[ 2 ];
++  vel = pml.previous_velocity[ 2 ];
++  acc = -pm->ps->gravity;
++
++  a = acc / 2;
++  b = vel;
++  c = -dist;
++
++  den =  b * b - 4 * a * c;
++  if( den < 0 )
++    return;
++
++  t = (-b - sqrt( den ) ) / ( 2 * a );
++
++  delta = vel + t * acc;
++  delta = delta*delta * 0.0006;
++
++  // ducking while falling doubles damage
++  if( pm->ps->pm_flags & PMF_DUCKED )
++    delta *= 2;
++
++  // Range check
++  if( delta < 1.f )
++    return;
++  if( delta > 255.f )
++    delta = 255.f;
++
++  BG_AddPredictableEventToPlayerstate( EV_GOOMBA, (int)delta, pm->ps );
++}
++
+ /*
+ =============
+ PM_CorrectAllSolid
+@@ -2206,6 +2256,8 @@
+     if( BG_ClassHasAbility( pm->ps->stats[ STAT_PCLASS ], SCA_TAKESFALLDAMAGE ) )
+       PM_CrashLand( );
+ 
++    PM_Goomba( );
++
+     // don't do landing time if we were just going down a slope
+     if( pml.previous_velocity[ 2 ] < -200 )
+     {
+@@ -2817,6 +2869,10 @@
+         BG_InventoryContainsUpgrade( UP_BATTPACK, pm->ps->stats ) )
+       ammo = (int)( (float)ammo * BATTPACK_MODIFIER );
+ 
++    // Ammo relic
++    if( BG_GetRelic( pm->ps ) == RLC_AMMO )
++      ammo *= 2;
++
+     BG_PackAmmoArray( pm->ps->weapon, pm->ps->ammo, pm->ps->powerups, ammo, clips );
+ 
+     //allow some time for the weapon to be raised
+@@ -2947,7 +3003,7 @@
+         return;
+       }
+ 
+-      pm->ps->generic1 = WPM_TERTIARY;
++      pm->ps->generic1 = ( pm->ps->generic1 & ~7 ) | WPM_TERTIARY;
+       PM_AddEvent( EV_FIRE_WEAPON3 );
+       addTime = BG_FindRepeatRate3ForWeapon( pm->ps->weapon );
+     }
+@@ -2955,7 +3011,7 @@
+     {
+       pm->ps->weaponTime = 0;
+       pm->ps->weaponstate = WEAPON_READY;
+-      pm->ps->generic1 = WPM_NOTFIRING;
++      pm->ps->generic1 = ( pm->ps->generic1 & ~7 ) | WPM_NOTFIRING;
+       return;
+     }
+   }
+@@ -2963,7 +3019,7 @@
+   {
+     if( BG_WeaponHasAltMode( pm->ps->weapon ) )
+     {
+-      pm->ps->generic1 = WPM_SECONDARY;
++      pm->ps->generic1 = ( pm->ps->generic1 & ~7 ) | WPM_SECONDARY;
+       PM_AddEvent( EV_FIRE_WEAPON2 );
+       addTime = BG_FindRepeatRate2ForWeapon( pm->ps->weapon );
+     }
+@@ -2971,13 +3027,13 @@
+     {
+       pm->ps->weaponTime = 0;
+       pm->ps->weaponstate = WEAPON_READY;
+-      pm->ps->generic1 = WPM_NOTFIRING;
++      pm->ps->generic1 = ( pm->ps->generic1 & ~7 ) | WPM_NOTFIRING;
+       return;
+     }
+   }
+   else if( attack1 )
+   {
+-    pm->ps->generic1 = WPM_PRIMARY;
++    pm->ps->generic1 = ( pm->ps->generic1 & ~7 ) | WPM_PRIMARY;
+     PM_AddEvent( EV_FIRE_WEAPON );
+     addTime = BG_FindRepeatRate1ForWeapon( pm->ps->weapon );
+   }
+@@ -2988,14 +3044,14 @@
+     switch( pm->ps->weapon )
+     {
+       case WP_ALEVEL0:
+-        pm->ps->generic1 = WPM_PRIMARY;
++        pm->ps->generic1 = ( pm->ps->generic1 & ~7 ) | WPM_PRIMARY;
+         PM_AddEvent( EV_FIRE_WEAPON );
+         addTime = BG_FindRepeatRate1ForWeapon( pm->ps->weapon );
+         break;
+ 
+       case WP_ALEVEL3:
+       case WP_ALEVEL3_UPG:
+-        pm->ps->generic1 = WPM_SECONDARY;
++        pm->ps->generic1 = ( pm->ps->generic1 & ~7 ) | WPM_SECONDARY;
+         PM_AddEvent( EV_FIRE_WEAPON2 );
+         addTime = BG_FindRepeatRate2ForWeapon( pm->ps->weapon );
+         break;
+Index: src/game/g_admin.c
+===================================================================
+--- src/game/g_admin.c	(revision 92)
++++ src/game/g_admin.c	(working copy)
+@@ -4360,9 +4360,9 @@
+           vic->client->pers.classSelection == class )
+       {
+         vec3_t infestOrigin;
+-        short cost;
++        int cost = 0;
+ 
+-        G_RoomForClassChange( vic, PCL_ALIEN_LEVEL0, infestOrigin );
++        G_RoomForClassChange( vic, PCL_ALIEN_LEVEL0, infestOrigin, qfalse, qfalse );
+ 
+         vic->client->pers.evolveHealthFraction = (float)vic->client->ps.stats[ STAT_HEALTH ] /
+             (float)BG_FindHealthForClass( class );
+@@ -4372,7 +4372,7 @@
+           vic->client->pers.evolveHealthFraction = 1.0f;
+ 
+         vic->client->pers.classSelection = PCL_ALIEN_LEVEL0;
+-        cost = BG_ClassCanEvolveFromTo( PCL_ALIEN_LEVEL0, class, 9, 0 );
++        BG_ClassCanEvolveFromTo2( PCL_ALIEN_LEVEL0, class, &cost );
+         if( cost < 0 ) cost = 0;
+         G_AddCreditToClient( vic->client, cost, qfalse );
+         ClientUserinfoChanged( pids[ 0 ], qfalse );
+Index: src/game/g_weapon.c
+===================================================================
+--- src/game/g_weapon.c	(revision 92)
++++ src/game/g_weapon.c	(working copy)
+@@ -70,7 +70,7 @@
+     // because I don't want to face the gameplay consequences such an error would have
+ 
+     // force this here to prevent flamer effect from continuing 
+-    ent->client->ps.generic1 = WPM_NOTFIRING;
++    ent->client->ps.generic1 = ( ent->client->ps.generic1 & ~7 ) | WPM_NOTFIRING;
+ 
+     ent->client->ps.weapon = ent->client->ps.persistant[ PERS_NEWWEAPON ];
+   }
+@@ -96,8 +96,7 @@
+ 
+     if( BG_InventoryContainsWeapon( i, ent->client->ps.stats ) &&
+         weaponType && !BG_FindInfinteAmmoForWeapon( i ) &&
+-        !BG_WeaponIsFull( i, ent->client->ps.stats,
+-          ent->client->ps.ammo, ent->client->ps.powerups ) )
++        !BG_WeaponIsFull( i, &ent->client->ps ) )
+     {
+       BG_FindAmmoForWeapon( i, &maxAmmo, &maxClips );
+ 
+@@ -109,6 +108,10 @@
+           maxAmmo = (int)( (float)maxAmmo * BATTPACK_MODIFIER );
+       }
+ 
++      // Ammo relic
++      if( BG_ClientRelic( ent->client ) == RLC_AMMO )
++        maxAmmo *= 2;
++
+       BG_PackAmmoArray( i, ent->client->ps.ammo, ent->client->ps.powerups,
+                         maxAmmo, maxClips );
+ 
+@@ -222,7 +225,12 @@
+   gentity_t *tent;
+   gentity_t *traceEnt;
+   vec3_t    mins, maxs;
++  int       flags = 0;
+ 
++  // Mini relic shrinks range
++  if( BG_GetRelic( &ent->s ) == RLC_MINI )
++    range /= 2;
++
+   VectorSet( mins, -width, -width, -width );
+   VectorSet( maxs, width, width, width );
+ 
+@@ -243,17 +251,22 @@
+   traceEnt = &g_entities[ tr.entityNum ];
+ 
+   // send blood impact
+-  if( traceEnt->takedamage && traceEnt->client )
++  if( traceEnt->takedamage && traceEnt->client &&
++      BG_ClientRelic( ent->client ) != RLC_REVERSE )
+   {
+     tent = G_TempEntity( tr.endpos, EV_MISSILE_HIT );
+     tent->s.otherEntityNum = traceEnt->s.number;
+     tent->s.eventParm = DirToByte( tr.plane.normal );
+     tent->s.weapon = ent->s.weapon;
+-    tent->s.generic1 = ent->s.generic1; //weaponMode
++    tent->s.generic1 = ent->s.generic1 & 7; //weaponMode
+   }
+ 
++  // Basi's don't knockback
++  if( mod == MOD_LEVEL1_CLAW )
++    flags |= DAMAGE_NO_KNOCKBACK;
++
+   if( traceEnt->takedamage )
+-    G_Damage( traceEnt, ent, ent, forward, tr.endpos, damage, DAMAGE_NO_KNOCKBACK, mod );
++    G_Damage( traceEnt, ent, ent, forward, tr.endpos, damage, flags, mod );
+ }
+ 
+ /*
+@@ -299,7 +312,8 @@
+   SnapVectorTowards( tr.endpos, muzzle );
+ 
+   // send bullet impact
+-  if( traceEnt->takedamage && traceEnt->client )
++  if( traceEnt->takedamage && traceEnt->client &&
++      BG_ClientRelic( ent->client ) != RLC_REVERSE )
+   {
+     tent = G_TempEntity( tr.endpos, EV_BULLET_HIT_FLESH );
+     tent->s.eventParm = traceEnt->s.number;
+@@ -409,20 +423,21 @@
+   SnapVectorTowards( tr.endpos, muzzle );
+ 
+   // send impact
+-  if( traceEnt->takedamage && traceEnt->client )
++  if( traceEnt->takedamage && traceEnt->client &&
++      BG_ClientRelic( ent->client ) != RLC_REVERSE )
+   {
+     tent = G_TempEntity( tr.endpos, EV_MISSILE_HIT );
+     tent->s.otherEntityNum = traceEnt->s.number;
+     tent->s.eventParm = DirToByte( tr.plane.normal );
+     tent->s.weapon = ent->s.weapon;
+-    tent->s.generic1 = ent->s.generic1; //weaponMode
++    tent->s.generic1 = ent->s.generic1 & 7; //weaponMode
+   }
+   else
+   {
+     tent = G_TempEntity( tr.endpos, EV_MISSILE_MISS );
+     tent->s.eventParm = DirToByte( tr.plane.normal );
+     tent->s.weapon = ent->s.weapon;
+-    tent->s.generic1 = ent->s.generic1; //weaponMode
++    tent->s.generic1 = ent->s.generic1 & 7; //weaponMode
+   }
+ 
+   if( traceEnt->takedamage )
+@@ -565,20 +580,21 @@
+   SnapVectorTowards( tr.endpos, muzzle );
+ 
+   // send impact
+-  if( traceEnt->takedamage && traceEnt->client )
++  if( traceEnt->takedamage && traceEnt->client &&
++      BG_ClientRelic( ent->client ) != RLC_REVERSE )
+   {
+     tent = G_TempEntity( tr.endpos, EV_MISSILE_HIT );
+     tent->s.otherEntityNum = traceEnt->s.number;
+     tent->s.eventParm = DirToByte( tr.plane.normal );
+     tent->s.weapon = ent->s.weapon;
+-    tent->s.generic1 = ent->s.generic1; //weaponMode
++    tent->s.generic1 = ent->s.generic1 & 7; //weaponMode
+   }
+   else
+   {
+     tent = G_TempEntity( tr.endpos, EV_MISSILE_MISS );
+     tent->s.eventParm = DirToByte( tr.plane.normal );
+     tent->s.weapon = ent->s.weapon;
+-    tent->s.generic1 = ent->s.generic1; //weaponMode
++    tent->s.generic1 = ent->s.generic1 & 7; //weaponMode
+   }
+ 
+   if( traceEnt->takedamage )
+@@ -625,7 +641,7 @@
+     VectorCopy( tr.endpos, temp );
+     temp[ 2 ] -= 10.0f;
+ 
+-    if( traceEnt->client )
++    if( traceEnt->client && BG_ClientRelic( ent->client ) != RLC_REVERSE )
+     {
+       tent = G_TempEntity( temp, EV_MISSILE_HIT );
+       tent->s.otherEntityNum = traceEnt->s.number;
+@@ -635,7 +651,7 @@
+ 
+     tent->s.eventParm = DirToByte( tr.plane.normal );
+     tent->s.weapon = ent->s.weapon;
+-    tent->s.generic1 = ent->s.generic1; //weaponMode
++    tent->s.generic1 = ent->s.generic1 & 7; //weaponMode
+   }
+ 
+   if( traceEnt->takedamage )
+@@ -792,7 +808,8 @@
+         G_AddEvent( ent, EV_BUILD_REPAIR, 0 );
+     }
+   }
+-  else if( ent->client->ps.weapon == WP_ABUILD2 )
++  else if( ent->client->ps.weapon == WP_ABUILD2 ||
++           ent->client->ps.weapon == WP_ABUILD )
+     meleeAttack( ent, ABUILDER_CLAW_RANGE, ABUILDER_CLAW_WIDTH,
+                  ABUILDER_CLAW_DMG, MOD_ABUILDER_CLAW ); //melee attack for alien builder
+ }
+@@ -915,20 +932,22 @@
+ 
+   if( traceEnt->client )
+   {
+-    if( traceEnt->client->ps.stats[ STAT_PTEAM ] == PTE_ALIENS )
++    if( traceEnt->client->ps.stats[ STAT_PTEAM ] == PTE_ALIENS &&
++        BG_GetRelic( &ent->s ) != RLC_REVERSE )
+       return qfalse;
+     if( traceEnt->client->ps.stats[ STAT_HEALTH ] <= 0 )
+       return qfalse;
+   }
+ 
+   // send blood impact
+-  if( traceEnt->takedamage && traceEnt->client )
++  if( traceEnt->takedamage && traceEnt->client &&
++      BG_ClientRelic( ent->client ) != RLC_REVERSE )
+   {
+     tent = G_TempEntity( tr.endpos, EV_MISSILE_HIT );
+     tent->s.otherEntityNum = traceEnt->s.number;
+     tent->s.eventParm = DirToByte( tr.plane.normal );
+     tent->s.weapon = ent->s.weapon;
+-    tent->s.generic1 = ent->s.generic1; //weaponMode
++    tent->s.generic1 = ent->s.generic1 & 7; //weaponMode
+   }
+ 
+   G_Damage( traceEnt, ent, ent, forward, tr.endpos, damage, DAMAGE_NO_KNOCKBACK, MOD_LEVEL0_BITE );
+@@ -1373,13 +1392,14 @@
+     return qfalse;
+ 
+   // send blood impact
+-  if( traceEnt->takedamage && traceEnt->client )
++  if( traceEnt->takedamage && traceEnt->client &&
++      BG_ClientRelic( ent->client ) != RLC_REVERSE )
+   {
+     tent = G_TempEntity( tr.endpos, EV_MISSILE_HIT );
+     tent->s.otherEntityNum = traceEnt->s.number;
+     tent->s.eventParm = DirToByte( tr.plane.normal );
+     tent->s.weapon = ent->s.weapon;
+-    tent->s.generic1 = ent->s.generic1; //weaponMode
++    tent->s.generic1 = ent->s.generic1 & 7; //weaponMode
+   }
+ 
+   if( !traceEnt->takedamage )
+@@ -1391,7 +1411,7 @@
+   ent->client->pmext.pouncePayload = 0;
+ 
+   G_Damage( traceEnt, ent, ent, forward, tr.endpos, damage,
+-      DAMAGE_NO_KNOCKBACK|DAMAGE_NO_LOCDAMAGE, MOD_LEVEL3_POUNCE );
++            DAMAGE_NO_LOCDAMAGE, MOD_LEVEL3_POUNCE );
+ 
+   ent->client->allowedToPounce = qfalse;
+ 
+@@ -1436,13 +1456,13 @@
+   VectorNormalize( forward );
+   VectorNegate( forward, normal );
+ 
+-  if( victim->client )
++  if( victim->client && BG_ClientRelic( ent->client ) != RLC_REVERSE )
+   {
+     tent = G_TempEntity( victim->s.origin, EV_MISSILE_HIT );
+     tent->s.otherEntityNum = victim->s.number;
+     tent->s.eventParm = DirToByte( normal );
+     tent->s.weapon = ent->s.weapon;
+-    tent->s.generic1 = ent->s.generic1; //weaponMode
++    tent->s.generic1 = ent->s.generic1 & 7; //weaponMode
+   }
+ 
+   if( !victim->takedamage )
+@@ -1457,6 +1477,27 @@
+ 
+ /*
+ ===============
++NudgedViewAngles
++
++Returns slightly nudged view angles for making the client miss.
++===============
++*/
++static float *NudgedViewAngles( const gentity_t *ent )
++{
++  static vec3_t angles;
++  float spread = 5.f;
++
++  if( BG_ClientRelic( ent->client ) != RLC_AMMO )
++    return ent->client->ps.viewangles;
++  VectorCopy( ent->client->ps.viewangles, angles );
++  angles[ 0 ] += spread * crandom();
++  angles[ 1 ] += spread * crandom();
++  angles[ 2 ] += spread * crandom();
++  return angles;
++}
++
++/*
++===============
+ CalcMuzzlePoint
+ 
+ set muzzle location relative to pivoting eye
+@@ -1464,10 +1505,16 @@
+ */
+ void CalcMuzzlePoint( gentity_t *ent, vec3_t forward, vec3_t right, vec3_t up, vec3_t muzzlePoint )
+ {
++  float viewheight = ent->client->ps.viewheight;
++
++  // Mini relic
++  if( BG_GetRelic( &ent->client->ps ) == RLC_MINI )
++    viewheight /= 2;
++
+   VectorCopy( ent->s.pos.trBase, muzzlePoint );
+-  muzzlePoint[ 2 ] += ent->client->ps.viewheight;
+-  VectorMA( muzzlePoint, 1, forward, muzzlePoint );
+-  VectorMA( muzzlePoint, 1, right, muzzlePoint );
++  muzzlePoint[ 2 ] += viewheight;
++  //VectorMA( muzzlePoint, 7, forward, muzzlePoint );
++  //VectorMA( muzzlePoint, 1, right, muzzlePoint );
+   // snap to integer coordinates for more efficient network bandwidth usage
+   SnapVector( muzzlePoint );
+ }
+@@ -1482,7 +1529,7 @@
+   if( ent->client )
+   {
+     // set aiming directions
+-    AngleVectors( ent->client->ps.viewangles, forward, right, up );
++    AngleVectors( NudgedViewAngles( ent ), forward, right, up );
+     CalcMuzzlePoint( ent, forward, right, up, muzzle );
+   }
+   else
+@@ -1517,7 +1564,7 @@
+   if( ent->client )
+   {
+     // set aiming directions
+-    AngleVectors( ent->client->ps.viewangles, forward, right, up );
++    AngleVectors( NudgedViewAngles( ent ), forward, right, up );
+     CalcMuzzlePoint( ent, forward, right, up, muzzle );
+   }
+   else
+@@ -1652,4 +1699,3 @@
+       break;
+   }
+ }
+-
+Index: src/game/g_missile.c
+===================================================================
+--- src/game/g_missile.c	(revision 92)
++++ src/game/g_missile.c	(working copy)
+@@ -209,7 +209,8 @@
+   // is it cheaper in bandwidth to just remove this ent and create a new
+   // one, rather than changing the missile into the explosion?
+ 
+-  if( other->takedamage && other->client )
++  if( other->takedamage && other->client &&
++      BG_ClientRelic( attacker->client ) != RLC_REVERSE )
+   {
+     G_AddEvent( ent, EV_MISSILE_HIT, DirToByte( trace->plane.normal ) );
+     ent->s.otherEntityNum = other->s.number;
+Index: src/game/g_client.c
+===================================================================
+--- src/game/g_client.c	(revision 92)
++++ src/game/g_client.c	(working copy)
+@@ -870,6 +870,26 @@
+ */
+ void respawn( gentity_t *ent )
+ {
++  // Resurrection relic
++  if( BG_ClientRelic( ent->client ) == RLC_RESURRECT )
++  {
++        ent->client->pers.classSelection = ent->client->ps.stats[ STAT_PCLASS ];
++        ent->client->ps.stats[ STAT_HEALTH ] = ent->health =
++          ent->client->ps.stats[ STAT_MAX_HEALTH ] / 5;
++        ent->r.contents = CONTENTS_BODY;
++        BG_SetRelic( &ent->client->ps, RLC_NONE );
++        G_ForceWeaponChange( ent, WP_NONE );
++        ent->flags &= ~FL_GODMODE;
++        ent->takedamage = qtrue;
++        G_TempEntity( ent->r.currentOrigin, EV_RESURRECT );
++
++        // Hack: killbox anything in the way
++        trap_UnlinkEntity( ent );
++        G_KillBox( ent );
++        trap_LinkEntity( ent );
++        return;
++  }
++
+   SpawnCorpse( ent );
+ 
+   //TA: Clients can't respawn - they must go thru the class cmd
+@@ -1276,16 +1296,16 @@
+   }
+ 
+   // set max health
++  // set handicap
+   health = atoi( Info_ValueForKey( userinfo, "handicap" ) );
++  if( health > 100 )
++        health = 100;
++  if( health < 20 )
++        health = 20;
+   client->pers.maxHealth = health;
++  if( ent->health > 0 )
++    G_CalculateMaxHealth( ent, RLC_NONE );
+ 
+-  if( client->pers.maxHealth < 1 || client->pers.maxHealth > 100 )
+-    client->pers.maxHealth = 100;
+-
+-  //hack to force a client update if the config string does not change between spawning
+-  if( client->pers.classSelection == PCL_NONE )
+-    client->pers.maxHealth = 0;
+-
+   // set model
+   if( client->ps.stats[ STAT_PCLASS ] == PCL_HUMAN && BG_InventoryContainsUpgrade( UP_BATTLESUIT, client->ps.stats ) )
+   {
+@@ -1338,7 +1358,7 @@
+     client->ps.persistant[ PERS_STATE ] &= ~PS_WALLCLIMBINGTOGGLE;
+ 
+   // teamInfo
+-  s = Info_ValueForKey( userinfo, "teamoverlay" );
++  s = Info_ValueForKey( userinfo, "cg_drawTeamOverlay" );
+ 
+   if( ! *s || atoi( s ) != 0 )
+     client->pers.teamInfo = qtrue;
+@@ -1543,9 +1563,12 @@
+ 
+     // count current clients and rank for scoreboard
+     CalculateRanks( );
++
++  // Send domination timer state
++  G_DominationTimer( clientNum );
++
+     G_admin_namelog_update( client, qfalse );
+   }
+-  
+ 
+   // if this is after !restart keepteams or !restart switchteams, apply said selection
+   if ( client->sess.restartTeam != PTE_NONE ) {
+@@ -1665,11 +1688,20 @@
+   vec3_t              up = { 0.0f, 0.0f, 1.0f };
+   int                 maxAmmo, maxClips;
+   weapon_t            weapon;
++  relic_t             relic = RLC_NONE;
++  int                 boosted = 0;
+ 
+-
+   index = ent - g_entities;
+   client = ent->client;
+ 
++  // Save relic and boosted state
++  if( ent == spawn )
++    relic = BG_GetRelic( &ent->client->ps );
++  else if( g_relicSpawn.integer )
++    relic = g_relicSpawn.integer;
++  if( client->ps.stats[ STAT_STATE ] & SS_BOOSTED )
++    boosted = client->lastBoostedTime;
++
+   teamLocal = client->pers.teamSelection;
+ 
+   //TA: only start client if chosen a class and joined a team
+@@ -1798,12 +1830,26 @@
+ 
+   BG_FindBBoxForClass( ent->client->pers.classSelection, ent->r.mins, ent->r.maxs, NULL, NULL, NULL );
+ 
++  // Maximum health
+   if( client->sess.sessionTeam != TEAM_SPECTATOR )
+-    client->pers.maxHealth = client->ps.stats[ STAT_MAX_HEALTH ] =
+-      BG_FindHealthForClass( ent->client->pers.classSelection );
++    G_CalculateMaxHealth( ent, relic );
+   else
+-    client->pers.maxHealth = client->ps.stats[ STAT_MAX_HEALTH ] = 100;
++    client->ps.stats[ STAT_MAX_HEALTH ] = 100;
+ 
++  // Health when evolving
++  if( ent == spawn ) {
++    client->ps.stats[ STAT_HEALTH ] = client->ps.stats[ STAT_MAX_HEALTH ] *
++                                      client->pers.evolveHealthFraction;
++    if( client->ps.stats[ STAT_HEALTH ] < 1 )
++      client->ps.stats[ STAT_HEALTH ] = 1;
++    ent->health = client->ps.stats[ STAT_HEALTH ];
++  }
++
++  // Health when spawning
++  else
++    ent->health = client->ps.stats[ STAT_HEALTH ] =
++      client->ps.stats[ STAT_MAX_HEALTH ];
++
+   // clear entity values
+   if( ent->client->pers.classSelection == PCL_HUMAN )
+   {
+@@ -1827,16 +1873,6 @@
+   ent->client->ps.stats[ STAT_STATE ] = 0;
+   VectorSet( ent->client->ps.grapplePoint, 0.0f, 0.0f, 1.0f );
+ 
+-  // health will count down towards max_health
+-  ent->health = client->ps.stats[ STAT_HEALTH ] = client->ps.stats[ STAT_MAX_HEALTH ]; //* 1.25;
+-
+-  //if evolving scale health
+-  if( ent == spawn )
+-  {
+-    ent->health *= ent->client->pers.evolveHealthFraction;
+-    client->ps.stats[ STAT_HEALTH ] *= ent->client->pers.evolveHealthFraction;
+-  }
+-
+   //clear the credits array
+   for( i = 0; i < MAX_CLIENTS; i++ )
+     ent->credits[ i ] = 0;
+@@ -1941,6 +1977,13 @@
+     }
+   }
+ 
++  // Restore relic and boosted state
++  BG_SetRelic( &client->ps, relic );
++  if( boosted ) {
++    client->ps.stats[ STAT_STATE ] |= SS_BOOSTED;
++    client->lastBoostedTime = boosted;
++  }
++
+   // run a client frame to drop exactly to the floor,
+   // initialize animations and other things
+   client->ps.commandTime = level.time - 100;
+Index: src/game/bg_public.h
+===================================================================
+--- src/game/bg_public.h	(revision 92)
++++ src/game/bg_public.h	(working copy)
+@@ -219,7 +219,7 @@
+   STAT_BUILDABLE, //TA: which ghost model to display for building
+   STAT_BOOSTTIME, //TA: time left for boost (alien only)
+   STAT_FALLDIST,  //TA: the distance the player fell
+-  STAT_VIEWLOCK   //TA: direction to lock the view in
++  STAT_VIEWLOCK,  //TA: direction to lock the view in
+ } statIndex_t;
+ 
+ #define SCA_WALLCLIMBER         0x00000001
+@@ -442,9 +442,23 @@
+   BA_H_REACTOR,
+   BA_H_REPEATER,
+ 
++  /* Domination points */
++  BA_DPOINT_A,
++  BA_DPOINT_B,
++  BA_DPOINT_C,
++  BA_DPOINT_D,
++  BA_DPOINT_FIRST = BA_DPOINT_A,
++  BA_DPOINT_LAST = BA_DPOINT_D,
++
++  /* Relic buildables */
++  BA_RELIC_FOUNT,
++
+   BA_NUM_BUILDABLES
+ } buildable_t;
+ 
++// Returns true if m (an entity modelindex) is in the domination point range
++#define BG_IsDPoint(m) ((m) >= BA_DPOINT_FIRST && (m) <= BA_DPOINT_LAST)
++
+ typedef enum
+ {
+   BIT_NONE,
+@@ -578,7 +592,16 @@
+ 
+   EV_DCC_ATTACK,      //TA: dcc under attack
+ 
+-  EV_RPTUSE_SOUND     //TA: trigger a sound
++  EV_RPTUSE_SOUND,     //TA: trigger a sound
++
++  // Relic events
++  EV_RESURRECT,
++  EV_GOOMBA,
++  EV_TRANSLOCATE,
++  EV_RELIC_HEAL,
++
++  // Balance mod events
++  EV_SLAP,
+ } entity_event_t;
+ 
+ typedef enum
+@@ -586,7 +609,12 @@
+   MN_TEAM,
+   MN_A_TEAMFULL,
+   MN_H_TEAMFULL,
++  MN_A_TEAMCHANGEBUILDTIMER,
++  MN_H_TEAMCHANGEBUILDTIMER,
+ 
++  // Domination
++  MN_NEARDP,
++
+   //alien stuff
+   MN_A_CLASS,
+   MN_A_BUILD,
+@@ -596,6 +624,9 @@
+   MN_A_NOEROOM,
+   MN_A_TOOCLOSE,
+   MN_A_NOOVMND_EVOLVE,
++  MN_A_EVOLVEBUILDTIMER,
++  MN_A_DEVOLVEOM,
++  MN_A_NODEVOLVE,
+ 
+   //alien build
+   MN_A_SPWNWARN,
+@@ -615,6 +646,11 @@
+   MN_H_NOSLOTS,
+   MN_H_NOFUNDS,
+   MN_H_ITEMHELD,
++  MN_H_NOENERGYAMMOHERE,
++  MN_H_NOARMOURYHERE,
++  MN_H_NOROOMBSUITON,
++  MN_H_NOROOMBSUITOFF,
++  MN_H_ARMOURYBUILDTIMER,
+ 
+   //human build
+   MN_H_REPEATER,
+@@ -626,21 +662,48 @@
+   MN_H_NORMAL,
+   MN_H_TNODEWARN,
+   MN_H_RPTWARN,
+-  MN_H_RPTWARN2,
++  MN_H_RPTWARN2
++} dynMenu_t;
+ 
+-  //not used
+-  MN_A_TEAMCHANGEBUILDTIMER,
+-  MN_H_TEAMCHANGEBUILDTIMER,
++// Relic types
++typedef enum
++{
++  RLC_NONE,
+ 
+-  MN_A_EVOLVEBUILDTIMER,
++  RLC_DOUBLE,
++  RLC_HEAL,
++  RLC_IMMUNE,
++  RLC_AMMO,
++  RLC_VAMPIRE,
++  RLC_BUILDER,
++  RLC_HALF,
++  RLC_RESURRECT,
++  RLC_INVISIBLE,
++  RLC_RADIATION,
++  RLC_GRAVITY,
++  RLC_ICE,
++  RLC_BREAKER,
++  RLC_BOUNTY,
++  RLC_UNKNOWN,
++  RLC_REVERSE,
++  RLC_GOOMBA,
++  RLC_SILENT,
++  RLC_PLAGUE,
++  RLC_MINI,
++  RLC_TRANSLOCATE,
++  RLC_PUSH,
+ 
+-  MN_H_NOENERGYAMMOHERE,
+-  MN_H_NOARMOURYHERE,
+-  MN_H_NOROOMBSUITON,
+-  MN_H_NOROOMBSUITOFF,
+-  MN_H_ARMOURYBUILDTIMER
+-} dynMenu_t;
++  RLC_NUM_RELICS
++} relic_t;
+ 
++// Relic from an entityState_t or playerState_t pointer
++#define BG_SetRelic( es, r ) ( (es)->generic1 =\
++                               ( (es)->generic1 & 7 ) | ( (r) << 3 ) )
++#define BG_GetRelic( es ) ( ( (es)->generic1 & ~7 ) >> 3 )
++
++// Get relic from a client pointer
++#define BG_ClientRelic( c ) ( c ? BG_GetRelic( &(c)->ps ) : RLC_NONE )
++
+ // animations
+ typedef enum
+ {
+@@ -841,6 +904,13 @@
+   PTE_NUM_TEAMS
+ } pTeam_t;
+ 
++// Domination timer states
++typedef enum {
++  DT_OFF = 0,               // timer is off
++  DT_ALIENS = PTE_ALIENS,   // aliens dominating
++  DT_HUMANS = PTE_HUMANS,   // humans dominating
++  DT_NONE,                  // no team is dominating
++} dominationTimer_t;
+ 
+ // means of death
+ typedef enum
+@@ -869,6 +939,11 @@
+   MOD_TARGET_LASER,
+   MOD_TRIGGER_HURT,
+ 
++  // Relic methods of death
++  MOD_RADIATION,
++  MOD_GOOMBA,
++  MOD_PLAGUE,
++
+   MOD_ABUILDER_CLAW,
+   MOD_LEVEL0_BITE,
+   MOD_LEVEL1_CLAW,
+@@ -922,6 +997,7 @@
+   vec3_t    deadMins;
+   vec3_t    deadMaxs;
+   float     zOffset;
++  float     spriteOffset;
+ 
+   int       viewheight;
+   int       crouchViewheight;
+@@ -1111,7 +1187,7 @@
+ //TA:
+ void      BG_UnpackAmmoArray( int weapon, int psAmmo[ ], int psAmmo2[ ], int *ammo, int *clips );
+ void      BG_PackAmmoArray( int weapon, int psAmmo[ ], int psAmmo2[ ], int ammo, int clips );
+-qboolean  BG_WeaponIsFull( weapon_t weapon, int stats[ ], int psAmmo[ ], int psAmmo2[ ] );
++qboolean  BG_WeaponIsFull( weapon_t weapon, playerState_t *ps );
+ void      BG_AddWeaponToInventory( int weapon, int stats[ ] );
+ void      BG_RemoveWeaponFromInventory( int weapon, int stats[ ] );
+ qboolean  BG_InventoryContainsWeapon( int weapon, int stats[ ] );
+@@ -1177,6 +1253,7 @@
+ float     BG_FindShadowScaleForClass( int pclass );
+ char      *BG_FindHudNameForClass( int pclass );
+ qboolean  BG_FindStagesForClass( int pclass, stage_t stage );
++float     BG_FindSpriteHeightForClass( int pclass );
+ void      BG_FindBBoxForClass( int pclass, vec3_t mins, vec3_t maxs, vec3_t cmaxs, vec3_t dmins, vec3_t dmaxs );
+ float     BG_FindZOffsetForClass( int pclass );
+ void      BG_FindViewheightForClass( int pclass, int *viewheight, int *cViewheight );
+@@ -1197,7 +1274,7 @@
+ qboolean  BG_ClassHasAbility( int pclass, int ability );
+ weapon_t  BG_FindStartWeaponForClass( int pclass );
+ float     BG_FindBuildDistForClass( int pclass );
+-int       BG_ClassCanEvolveFromTo( int fclass, int tclass, int credits, int num );
++qboolean  BG_ClassCanEvolveFromTo2(int fclass,int tclass,int *cost);
+ int       BG_FindCostOfClass( int pclass );
+ int       BG_FindValueOfClass( int pclass );
+ void      BG_InitClassOverrides( void );
+@@ -1260,6 +1337,7 @@
+   ET_ITEM,
+ 
+   ET_BUILDABLE,       //TA: buildable type
++  ET_RELIC,           // relic entity
+ 
+   ET_MISSILE,
+   ET_MOVER,
+Index: src/game/g_cmds.c
+===================================================================
+--- src/game/g_cmds.c	(revision 92)
++++ src/game/g_cmds.c	(working copy)
+@@ -286,8 +286,10 @@
+     }
+ 
+     Com_sprintf( entry, sizeof( entry ),
+-      " %d %d %d %d %d %d", level.sortedClients[ i ], cl->pers.score, ping, 
+-      ( level.time - cl->pers.enterTime ) / 60000, weapon, upgrade );
++      " %d %d %d %d %d %d %d %d", level.sortedClients[ i ],
++      cl->pers.score, ping,
++      ( level.time - cl->pers.enterTime ) / 60000, weapon, upgrade,
++      BG_GetRelic( &cl->ps ), cl->ps.persistant[ PERS_KILLED ] );
+ 
+     j = strlen( entry );
+ 
+@@ -406,6 +408,17 @@
+   if( Q_stricmp( name, "all" ) == 0 )
+     give_all = qtrue;
+ 
++  if( Q_stricmpn( name, "relic", 5 ) == 0 )
++  {
++    relic_t relic = atoi(name + 6);
++
++    if( relic >= RLC_NONE && relic < RLC_NUM_RELICS &&
++        G_CanTakeRelic( ent, relic ) ) {
++      BG_SetRelic( &ent->client->ps, relic );
++      G_CalculateMaxHealth( ent, RLC_NONE );
++    }
++  }
++
+   if( give_all || Q_stricmp( name, "health" ) == 0 )
+   {
+     if(!g_devmapNoGod.integer)
+@@ -2577,7 +2590,8 @@
+ 
+ #define AS_OVER_RT3         ((ALIENSENSE_RANGE*0.5f)/M_ROOT3)
+ 
+-qboolean G_RoomForClassChange( gentity_t *ent, pClass_t class, vec3_t newOrigin )
++qboolean G_RoomForClassChange( gentity_t *ent, pClass_t class,
++  vec3_t newOrigin, qboolean toMini, qboolean fromMini )
+ {
+   vec3_t    fromMins, fromMaxs;
+   vec3_t    toMins, toMaxs;
+@@ -2590,6 +2604,24 @@
+   BG_FindBBoxForClass( oldClass, fromMins, fromMaxs, NULL, NULL, NULL );
+   BG_FindBBoxForClass( class, toMins, toMaxs, NULL, NULL, NULL );
+ 
++  // Mini relic
++  if( fromMini ) {
++    fromMins[ 0 ] /= 2;
++    fromMins[ 1 ] /= 2;
++    fromMins[ 2 ] /= 2;
++    fromMaxs[ 0 ] /= 2;
++    fromMaxs[ 1 ] /= 2;
++    fromMaxs[ 2 ] /= 2;
++  }
++  if( toMini ) {
++    toMins[ 0 ] /= 2;
++    toMins[ 1 ] /= 2;
++    toMins[ 2 ] /= 2;
++    toMaxs[ 0 ] /= 2;
++    toMaxs[ 1 ] /= 2;
++    toMaxs[ 2 ] /= 2;
++  }
++
+   VectorCopy( ent->s.origin, newOrigin );
+ 
+   // find max x/y diff
+@@ -2657,8 +2689,8 @@
+   int       num;
+   gentity_t *other;
+   qboolean  humanNear = qfalse;
++  qboolean  mini = BG_GetRelic( &ent->s ) == RLC_MINI;
+ 
+-
+   clientNum = ent->client - level.clients;
+   trap_Argv( 1, s, sizeof( s ) );
+   newClass = BG_FindClassNumForName( s );
+@@ -2819,22 +2851,25 @@
+         return;
+       }
+ 
+-      numLevels = BG_ClassCanEvolveFromTo( currentClass,
+-                                           newClass,
+-                                           (short)ent->client->ps.persistant[ PERS_CREDIT ], 0 );
+-
+-      if( G_RoomForClassChange( ent, newClass, infestOrigin ) )
++      if( G_RoomForClassChange( ent, newClass, infestOrigin, mini, mini ) )
+       {
+         //...check we can evolve to that class
+-        if( numLevels >= 0 &&
++        if( BG_ClassCanEvolveFromTo2( currentClass, newClass, &numLevels ) &&
++            numLevels <= ent->client->ps.persistant[ PERS_CREDIT ] &&
+             BG_FindStagesForClass( newClass, g_alienStage.integer ) &&
+             BG_ClassIsAllowed( newClass ) )
+         {
+-          G_LogOnlyPrintf("ClientTeamClass: %i alien %s\n", clientNum, s);
++          if( newClass < currentClass )
++          {
++              return;
++          }
+ 
+-          ent->client->pers.evolveHealthFraction = (float)ent->client->ps.stats[ STAT_HEALTH ] /
+-            (float)BG_FindHealthForClass( currentClass );
++          G_LogPrintf("ClientTeamClass: %i alien %s\n", clientNum, s);
+ 
++          ent->client->pers.evolveHealthFraction =
++            (float)ent->client->ps.stats[ STAT_HEALTH ] /
++            ent->client->ps.stats[ STAT_MAX_HEALTH ];
++
+           if( ent->client->pers.evolveHealthFraction < 0.0f )
+             ent->client->pers.evolveHealthFraction = 0.0f;
+           else if( ent->client->pers.evolveHealthFraction > 1.0f )
+@@ -2968,10 +3003,17 @@
+ 
+     if( tr.fraction < 1.0f &&
+         ( traceEnt->s.eType == ET_BUILDABLE ) &&
+-        ( traceEnt->biteam == ent->client->pers.teamSelection ) &&
++        ( traceEnt->biteam == ent->client->pers.teamSelection ||
++        ( g_cheats.integer && traceEnt->biteam == BIT_NONE ) ) &&
+         ( ( ent->client->ps.weapon >= WP_ABUILD ) &&
+           ( ent->client->ps.weapon <= WP_HBUILD ) ) )
+     {
++      // Always destroy no-team buildables; update domination point counts
++      if( traceEnt->biteam == BIT_NONE )
++      {
++        G_FreeEntity( traceEnt );
++        return;
++      }
+       // Cancel deconstruction
+       if( g_markDeconstruct.integer == 1 && traceEnt->deconstruct )
+       {
+@@ -3203,6 +3245,10 @@
+   upgrade = BG_FindUpgradeNumForName( s );
+   weapon = BG_FindWeaponNumForName( s );
+ 
++  // Cannot activate medkit as vampire
++  if( upgrade == UP_MEDKIT && BG_GetRelic( &ent->s ) == RLC_VAMPIRE )
++    return;
++
+   if( upgrade != UP_NONE && BG_InventoryContainsUpgrade( upgrade, ent->client->ps.stats ) )
+     BG_ActivateUpgrade( upgrade, ent->client->ps.stats );
+   else if( weapon != WP_NONE && BG_InventoryContainsWeapon( weapon, ent->client->ps.stats ) )
+@@ -3410,6 +3456,10 @@
+         BG_InventoryContainsUpgrade( UP_BATTPACK, ent->client->ps.stats ) )
+       maxAmmo = (int)( (float)maxAmmo * BATTPACK_MODIFIER );
+ 
++    // Ammo relic
++    if( BG_ClientRelic( ent->client ) == RLC_AMMO )
++      maxAmmo *= 2;
++
+     BG_PackAmmoArray( weapon, ent->client->ps.ammo, ent->client->ps.powerups,
+                       maxAmmo, maxClips );
+ 
+@@ -3756,6 +3806,10 @@
+         G_TriggerMenu( ent->client->ps.clientNum, MN_A_NOOVMND );
+         break;
+ 
++      case IBE_NEARDP:
++        G_TriggerMenu( ent->client->ps.clientNum, MN_NEARDP );
++        break;
++
+       case IBE_OVERMIND:
+         G_TriggerMenu( ent->client->ps.clientNum, MN_A_OVERMIND );
+         break;
+Index: Makefile
+===================================================================
+--- Makefile	(revision 92)
++++ Makefile	(working copy)
+@@ -848,6 +848,7 @@
+   $(B)/base/game/g_client.o \
+   $(B)/base/game/g_cmds.o \
+   $(B)/base/game/g_combat.o \
++  $(B)/base/game/g_relic.o \
+   $(B)/base/game/g_physics.o \
+   $(B)/base/game/g_buildable.o \
+   $(B)/base/game/g_misc.o \
