@@ -605,6 +605,928 @@ Index: src/game/tremulous.h
  // g_suddenDeathMode settings
  #define SDMODE_BP                   0
  #define SDMODE_NO_BUILD             1
+Index: src/game/g_relic.c
+===================================================================
+--- src/game/g_relic.c	(revision 0)
++++ src/game/g_relic.c	(revision 0)
+@@ -0,0 +1,917 @@
++/*
++===========================================================================
++Copyright (C) 2007 Michael Levin <risujin@risujin.org>
++
++This file is part of Tremulous.
++
++Tremulous is free software; you can redistribute it
++and/or modify it under the terms of the GNU General Public License as
++published by the Free Software Foundation; either version 2 of the License,
++or (at your option) any later version.
++
++Tremulous is distributed in the hope that it will be
++useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
++MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++GNU General Public License for more details.
++
++You should have received a copy of the GNU General Public License
++along with Tremulous; if not, write to the Free Software
++Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
++===========================================================================
++*/
++
++#include "g_local.h"
++
++// g_relic.c -- functions relating to relics
++
++#define RELIC_VELOCITY  200.f    // velocity a relic is launched outward with
++#define RELIC_MAX       32       // maximum number of relic entities
++#define RELIC_TIMEOUT   2000     // msec before a relic can be picked up
++#define RELIC_DEADTIME  1000     // msec before a dead relic is free'd
++#define RELIC_UPDATE    1000     // msec between relic updates
++#define RELIC_LIFETIME  20000    // kill the relic after this amount of time
++#define RELIC_SIZE      15       // relic bounding box size
++#define RELIC_HEIGHT    20       // relic height above origin
++#define RELIC_DEADTIME  1000     // time before an excess dead relic is free'd
++#define RELIC_WALKTIME  5000     // minimum msec a relic must random walk
++#define RELIC_WALKDIST  500.f    // maximum distance a relic walks per frame
++#define RELIC_BOUNDS    15000.f  // largest map coordinate for bounds checking
++#define RELIC_INITWAIT  5        // wait frames for things to settle down
++#define RELIC_DEADTHINK 200      // msec to wait before thinks on a dead relic
++#define RELIC_LIVETHINK 100      // msec to wait before thinks on a live relic
++#define RELIC_FOUNTWAIT 20000    // msec between relic spawns from a fount
++#define RELIC_HEALTIME  3000     // msec until overfull health degenerates
++
++// Contents mask for layer collision
++#define RELIC_CONTENTS MASK_DEADSOLID
++
++/*
++===============
++G_CalculateMaxHealth
++===============
++*/
++void G_CalculateMaxHealth( gentity_t *ent, relic_t relic )
++{
++  int health = ent->health, old_max, max;
++  float modifier = 1.f;
++
++  if( !ent->client )
++    return;
++
++  // Relics that modify max health
++  if( relic == RLC_NONE )
++    relic = BG_ClientRelic( ent->client );
++  if( relic == RLC_HEAL )
++    modifier = 0.75f;
++  else if( relic == RLC_MINI )
++    modifier = 0.5f;
++
++  // Calculate new maximum
++  max = BG_FindHealthForClass( ent->client->pers.classSelection ) *
++        modifier * ent->client->pers.maxHealth / 100.f + 0.5f;
++  if( max < 1 )
++    max = 1;
++
++  // Set new maximum and rescale current health
++  old_max = ent->client->ps.stats[ STAT_MAX_HEALTH ];
++  if( old_max == max )
++    return;
++  ent->client->ps.stats[ STAT_MAX_HEALTH ] = max;
++  if( old_max < 1 )
++    health = max;
++  else if( health > 0 ) {
++    health = health * max / old_max;
++    if( health < 1 )
++      health = 1;
++  }
++  ent->health = ent->client->ps.stats[ STAT_HEALTH ] = health;
++}
++
++/*
++===============
++KillRelic
++
++Remove a relic from the map.
++===============
++*/
++static void KillRelic( gentity_t *ent )
++{
++  if( !ent || ent->s.eType != ET_RELIC || (ent->s.eFlags & EF_DEAD) )
++    return;
++
++  // Let the parent relic fount spawn relics again
++  if( ent->relicParentNum && ent->relicParentNum < MAX_GENTITIES ) {
++    gentity_t *parent = g_entities + ent->relicParentNum;
++
++    if( parent->s.eType == ET_BUILDABLE &&
++        parent->s.modelindex == BA_RELIC_FOUNT ) {
++      parent->dontSpawnRelic = qfalse;
++      parent->timestamp = level.time;
++    }
++  }
++
++  ent->s.eFlags |= EF_DEAD;
++  ent->timestamp = level.time;
++  level.numRelics--;
++  level.numRelic[ ent->s.modelindex ]--;
++}
++
++/*
++===============
++RandomRelic
++===============
++*/
++static relic_t RandomRelic( gentity_t *ent, relic_t unknown, qboolean consume )
++{
++  int seed = level.time, index, sum = 0, total, i, inc;
++
++  if( ent )
++    seed += ent->s.number;
++
++  // Choose using quanities specified in cvars
++  total = level.relicCvarSum - level.numRelics;
++  if( total > 0 )
++  {
++    index = 1;
++    if( total > 1 )
++      index += ( seed + rand( ) ) % ( total - 1 );
++    for( i = 1; i < RLC_NUM_RELICS; i++ )
++    {
++      if (unknown >= 0 && ( i == RLC_UNKNOWN || i == unknown ) )
++        continue;
++      inc = g_relic[ i ].integer - level.numRelic[ i ];
++      if( inc < 1 )
++        continue;
++      sum += inc;
++      if( sum < index )
++        continue;
++      level.numRelic[ i ]--;
++      return i;
++    }
++  }
++
++  // Consume a relic floating in the world
++  if( consume )
++  {
++    for( i = 0; i < MAX_GENTITIES; i++)
++      if( g_entities[ i ].inuse && g_entities[ i ].s.eType == ET_RELIC &&
++          g_entities[ i ].s.modelindex != RLC_UNKNOWN )
++      {
++        relic_t type = g_entities[ i ].s.modelindex;
++
++        KillRelic( g_entities + i );
++        return type;
++      }
++  }
++
++  // No available relic types
++  return RLC_NONE;
++}
++
++/*
++===============
++EjectRelic
++
++Drop a player's relic
++===============
++*/
++void G_EjectRelic( gentity_t *ent )
++{
++  relic_t relic = BG_ClientRelic( ent->client );
++
++  if( relic == RLC_NONE )
++    return;
++
++  // Plague relic: do not eject it if it is not the original or plague relics
++  // will multiply
++  if( relic == RLC_PLAGUE && ent->client->lastPlagueClient ) {
++    BG_SetRelic( &ent->client->ps, RLC_NONE );
++    return;
++  }
++
++  // Ammo relic: if we are dropping an ammo relic, make sure we don't have
++  // more than the normally allowed ammo amount
++  if( relic == RLC_AMMO )
++  {
++    int i, maxAmmo, maxClips, ammo, clips, energyWeapon;
++
++    // Human weapons
++    if( ent->client->pers.teamSelection == PTE_HUMANS )
++      for( i = WP_NONE + 1; i < WP_NUM_WEAPONS; i++ )
++      {
++        energyWeapon = BG_FindUsesEnergyForWeapon( i );
++        if( BG_InventoryContainsWeapon( i, ent->client->ps.stats ) &&
++            !BG_FindInfinteAmmoForWeapon( i ) )
++        {
++          BG_UnpackAmmoArray( i, ent->client->ps.ammo, ent->client->ps.powerups,
++                              &ammo, &clips );
++          BG_FindAmmoForWeapon( i, &maxAmmo, &maxClips );
++
++          if( energyWeapon &&
++              BG_InventoryContainsUpgrade( UP_BATTPACK,
++                                           ent->client->ps.stats ) )
++            maxAmmo = (int)( (float)maxAmmo * BATTPACK_MODIFIER );
++
++          if( ammo > maxAmmo )
++            ammo = maxAmmo;
++          BG_PackAmmoArray( i, ent->client->ps.ammo, ent->client->ps.powerups,
++                            ammo, clips );
++        }
++      }
++
++    // Alien advanced goon
++    else if( ent->client->ps.stats[ STAT_PCLASS ] == PCL_ALIEN_LEVEL3_UPG )
++    {
++      BG_FindAmmoForWeapon( WP_ALEVEL3_UPG, &maxAmmo, NULL );
++      BG_UnpackAmmoArray( WP_ALEVEL3_UPG, ent->client->ps.ammo,
++                          ent->client->ps.powerups, &ammo, &clips );
++      if( ammo > maxAmmo )
++      {
++        ammo = maxAmmo;
++        BG_PackAmmoArray( WP_ALEVEL3_UPG, ent->client->ps.ammo,
++                          ent->client->ps.powerups, ammo, clips );
++      }
++    }
++  }
++
++  G_SpawnRelic( ent );
++  BG_SetRelic( &ent->client->ps, RLC_NONE );
++  G_CalculateMaxHealth( ent, RLC_NONE );
++}
++
++/*
++===============
++G_ClientThink_Relic
++
++Client think post-processing for relic effects.
++===============
++*/
++#define RADIATION_RANGE         400.f
++#define RADIATION_RANGE_SQRT    20.f
++
++void G_ClientThink_Relic( gentity_t *ent )
++{
++  gclient_t *client = ent->client;
++  int max_health;
++
++  // Dead clients don't use relics
++  if( ent->health <= 0 )
++    return;
++
++  max_health = client->ps.stats[ STAT_MAX_HEALTH ];
++
++  // Update unlimited relics
++  switch( BG_ClientRelic( ent->client ) )
++  {
++    case RLC_INVISIBLE:
++
++      // Cannot hide with the invisible when the game is over
++      if( ( ent->client->pers.teamSelection == PTE_ALIENS &&
++            !level.overmindPresent ) ||
++          ( ent->client->pers.teamSelection == PTE_HUMANS &&
++            !level.reactorPresent ) ) {
++        trap_SendServerCommand( ent->client->ps.clientNum,
++                                "print \"Invisible relic ejects without a "
++                                "Reactor or Overmind\n\"" );
++        G_EjectRelic( ent );
++      } else if( ent->client->ps.weaponstate == WEAPON_FIRING ) {
++        G_EjectRelic( ent );
++      }
++      break;
++    default:
++      break;
++  }
++
++  // Update-limited relics
++  if( client->relicTime + RELIC_UPDATE > level.time )
++    return;
++  client->relicTime = level.time;
++  switch( BG_ClientRelic( ent->client ) )
++  {
++
++  // Heal humans here, Aliens are heal boosted in g_active.c
++  case RLC_HEAL:
++    if( ent->client->pers.teamSelection == PTE_HUMANS ) {
++      int heal_rate = 3;
++
++      if( ent->health + heal_rate > max_health )
++        heal_rate = max_health - ent->health;
++      if( heal_rate > 0 )
++        ent->health += heal_rate;
++    }
++    break;
++
++  case RLC_RADIATION:
++    {
++      int i, num, entityList[ MAX_GENTITIES ];
++      vec3_t range = { RADIATION_RANGE, RADIATION_RANGE, RADIATION_RANGE },
++             mins, maxs, dir;
++      float distance;
++
++      VectorAdd( ent->s.origin, range, maxs );
++      VectorSubtract( ent->s.origin, range, mins );
++      num = trap_EntitiesInBox( mins, maxs, entityList, MAX_GENTITIES );
++      for( i = 0; i < num; i++ )
++      {
++        gentity_t *target = &g_entities[ entityList[ i ] ];
++        int damage, max_health;
++
++        // Must be alive and visible to the point
++        if( target->health <= 0 || !G_Visible( ent, target ) || ent == target ||
++            ( ( target->s.eType != ET_BUILDABLE ||
++                target->biteam == BIT_NONE ) &&
++              target->s.eType != ET_PLAYER ) )
++          continue;
++
++        // Square fall-off with distance
++        VectorSubtract( target->s.origin, ent->s.origin, dir );
++        distance = VectorLength( dir );
++        if( distance >= RADIATION_RANGE )
++          continue;
++
++        // Damage based on maximum health
++        if( target->s.eType == ET_PLAYER )
++          max_health = target->client->ps.stats[ STAT_MAX_HEALTH ];
++        else if( target->s.eType == ET_BUILDABLE )
++          max_health = BG_FindHealthForBuildable( target->s.modelindex );
++        else
++          break;
++        damage = 5 + (max_health + 38) / 75;
++        if (damage < 2)
++          damage = 2;
++
++        G_Damage( target, NULL, ent, dir, NULL,
++                  damage * sqrt( RADIATION_RANGE - distance ) /
++                  RADIATION_RANGE_SQRT, 0, MOD_RADIATION );
++      }
++    }
++    break;
++  case RLC_PLAGUE:
++    {
++      int damage;
++
++      damage = (ent->health + 8) / 15;
++      if( damage < 2 )
++        damage = 2;
++      G_Damage( ent, client->lastPlagueClient, client->lastPlagueClient, NULL,
++                NULL, damage, 0, MOD_PLAGUE );
++    }
++    break;
++  default:
++    break;
++  }
++
++  // Since we can now raise health beyond class limits, we need to degenerate it
++  if( ent->health > max_health &&
++      ent->lastHealTime + RELIC_HEALTIME <= level.time ) {
++    int drain = (level.time - ent->lastHealTime) / RELIC_HEALTIME;
++
++    if( ent->health - drain < max_health )
++      ent->health = max_health;
++    else
++      ent->health -= drain;
++  }
++}
++
++/*
++===============
++RangeCheck
++
++Call this to see if there is a player in range of this relic
++===============
++*/
++static qboolean RangeCheck( gentity_t *self )
++{
++  int       entityList[ MAX_GENTITIES ], i, num;
++  vec3_t    range = { RELIC_WALKDIST, RELIC_WALKDIST, RELIC_WALKDIST },
++            mins, maxs;
++  gentity_t *ent;
++
++  VectorAdd( self->r.currentOrigin, range, maxs );
++  VectorSubtract( self->r.currentOrigin, range, mins );
++  num = trap_EntitiesInBox( mins, maxs, entityList, MAX_GENTITIES );
++  for( i = 0; i < num; i++ )
++  {
++    ent = &g_entities[ entityList[ i ] ];
++    if( !ent->client || ent->s.eType != ET_PLAYER || ent->health <= 0 )
++      continue;
++    return qfalse;
++  }
++  return qtrue;
++}
++
++/*
++===============
++SpawnRelic
++
++Spawn a specific relic out of an entity.
++===============
++*/
++static gentity_t *SpawnRelic( gentity_t *ent, relic_t type )
++{
++  gentity_t *relic;
++  vec3_t offset;
++  trace_t tr;
++
++  if( g_relics.integer < 1 || ent->dontSpawnRelic || type <= RLC_NONE )
++    return NULL;
++
++  // Kill an old relic if we are full
++  if( level.numRelics >= g_relics.integer || level.numRelics > RELIC_MAX )
++  {
++    gentity_t *oldest = NULL;
++    int i;
++
++    for( i = 1; i < MAX_GENTITIES; i++ )
++    {
++      if( !g_entities[i].inuse || g_entities[i].s.eType != ET_RELIC ||
++          (g_entities[i].s.eFlags & EF_DEAD) || !RangeCheck( g_entities + i ) )
++        continue;
++      if( !oldest || g_entities[i].timestamp < oldest->timestamp )
++        oldest = g_entities + i;
++    }
++    if( !oldest )
++      return NULL;
++    KillRelic( oldest );
++  }
++
++  relic = G_Spawn( );
++  relic->classname = "relic";
++  relic->relicPickupTime = relic->timestamp = level.time;
++  relic->relicParentNum = ent - g_entities;
++  relic->physicsBounce = 0.5;
++  relic->nextthink = level.time + RELIC_LIVETHINK;
++  relic->think = G_RelicThink;
++  relic->evaluateAcceleration = qfalse;
++
++  // Bounding box
++  relic->r.contents = 0;
++  relic->r.mins[ 0 ] = -RELIC_SIZE;
++  relic->r.mins[ 1 ] = -RELIC_SIZE;
++  relic->r.mins[ 2 ] = -RELIC_HEIGHT;
++  relic->r.maxs[ 0 ] = RELIC_SIZE;
++  relic->r.maxs[ 1 ] = RELIC_SIZE;
++  relic->r.maxs[ 2 ] = RELIC_HEIGHT;
++
++  // Relics use modelindex to pass their type
++  relic->s.eType = ET_RELIC;
++  relic->s.modelindex = type;
++  relic->s.groundEntityNum = -1;
++
++  // Fling the relic in a random upward direction if we are not spawning out
++  // of a fount
++  relic->s.pos.trType = TR_GRAVITY;
++  relic->s.pos.trTime = level.time;
++  if( ent->s.eType != ET_BUILDABLE || ent->s.modelindex != BA_RELIC_FOUNT ) {
++    relic->s.pos.trDelta[ 0 ] = RELIC_VELOCITY * crandom();
++    relic->s.pos.trDelta[ 1 ] = RELIC_VELOCITY * crandom();
++    relic->s.pos.trDelta[ 2 ] = RELIC_VELOCITY;
++  } else
++    ent->dontSpawnRelic = qtrue;
++
++  // The relic may have spawned inside a solid object
++  VectorAdd( ent->r.currentOrigin, ent->r.mins, relic->r.currentOrigin );
++  VectorSubtract( ent->r.maxs, ent->r.mins, offset );
++  VectorMA( relic->r.currentOrigin, 0.5f, offset, relic->r.currentOrigin );
++  trap_Trace( &tr, relic->r.currentOrigin, relic->r.mins, relic->r.maxs,
++              relic->r.currentOrigin, ent->s.number, RELIC_CONTENTS );
++  if( tr.startsolid || tr.fraction < 1.f )
++  {
++    int i;
++
++    // Try spawning away from the entity
++    for( i = 0; i < 3; i++) {
++      float old = relic->r.currentOrigin[ i ];
++
++      relic->r.currentOrigin[ i ] = ent->r.currentOrigin[ i ] +
++                                    ent->r.maxs[ i ] + RELIC_HEIGHT;
++      trap_Trace( &tr, relic->r.currentOrigin, relic->r.mins, relic->r.maxs,
++                  relic->r.currentOrigin, ent->s.number, RELIC_CONTENTS );
++      if( !tr.startsolid && tr.fraction >= 1.f )
++        break;
++      relic->r.currentOrigin[ i ] = ent->r.currentOrigin[ i ] +
++                                    ent->r.mins[ i ] - RELIC_HEIGHT;
++      trap_Trace( &tr, relic->r.currentOrigin, relic->r.mins, relic->r.maxs,
++                  relic->r.currentOrigin, ent->s.number, RELIC_CONTENTS );
++      if( !tr.startsolid && tr.fraction >= 1.f )
++        break;
++      relic->r.currentOrigin[ i ] = old;
++    }
++
++    // Failed T_T
++    if( tr.startsolid || tr.fraction < 1.f )
++    {
++      /*Com_Printf("Solid relic %d inside entity %d eType=%d at "
++                 "(%.0f %.0f %.0f)\n",
++                 relic->s.number, ent->s.number, ent->s.eType,
++                 relic->r.currentOrigin[ 0 ], relic->r.currentOrigin[ 1 ],
++                 relic->r.currentOrigin[ 2 ]);*/
++
++      // This could be a bad starter entity, don't try again from here
++      if( ent->s.eType != ET_PLAYER &&
++          !( ent->s.eType == ET_BUILDABLE &&
++             ent->s.modelindex == BA_RELIC_FOUNT ) )
++        ent->dontSpawnRelic = qtrue;
++
++      G_FreeEntity( relic );
++      return NULL;
++    }
++  }
++  /*Com_Printf("Spawned relic %d inside entity %d eType=%d at "
++             "(%.0f %.0f %.0f)\n",
++             relic->s.number, ent->s.number, ent->s.eType,
++             relic->r.currentOrigin[ 0 ], relic->r.currentOrigin[ 1 ],
++             relic->r.currentOrigin[ 2 ]);*/
++
++  // Save real position to entity state
++  VectorCopy( relic->r.currentOrigin, relic->s.pos.trBase );
++  VectorCopy( relic->r.currentOrigin, relic->s.origin );
++  SnapVector( relic->s.pos.trDelta );
++
++  // Increment level count
++  level.numRelics++;
++  level.numRelic[ type ]++;
++
++  trap_LinkEntity( relic );
++  return relic;
++}
++
++/*
++===============
++G_SpawnRelic
++
++Spawn a random relic out of an entity.
++===============
++*/
++gentity_t *G_SpawnRelic( gentity_t *ent )
++{
++  relic_t relic = RLC_NONE;
++
++  if( ent->client )
++    relic = BG_ClientRelic( ent->client );
++  if( relic == RLC_NONE )
++    relic = RandomRelic( ent, -1, qfalse );
++  if( relic == RLC_NONE )
++    return NULL;
++  return SpawnRelic( ent, relic );
++}
++
++/*
++===============
++SpawnDeadRelic
++
++Spawn a dead relic to bounce around
++===============
++*/
++static void SpawnDeadRelic( gentity_t *ent )
++{
++  if( g_relicFountsOnly.integer )
++    return;
++  ent = G_SpawnRelic( ent );
++  if( !ent )
++    return;
++  ent->timestamp = level.time - RELIC_DEADTIME - 1;
++  ent->s.eFlags |= EF_DEAD;
++  ent->r.svFlags |= SVF_NOCLIENT;
++}
++
++/*
++===============
++G_CanTakeRelic
++
++Checks if a client can take a relic
++===============
++*/
++qboolean G_CanTakeRelic( gentity_t *ent, relic_t newRelic )
++{
++  relic_t oldRelic = BG_GetRelic( &ent->s );
++  vec3_t newOrigin;
++
++  // Mini relic: we need to check for room before allowing a pickup or drop
++  if( !G_RoomForClassChange( ent, ent->client->ps.stats[ STAT_PCLASS ],
++                             newOrigin, newRelic == RLC_MINI,
++                             oldRelic == RLC_MINI ) )
++    return qfalse;
++
++  VectorCopy( newOrigin, ent->client->ps.origin );
++
++  return qtrue;
++}
++
++/*
++===============
++G_RelicFountThink
++
++Relic fount think function
++===============
++*/
++void G_RelicFountThink( gentity_t *self )
++{
++  // The fount can be infected by touching it with a relic during cheats mode
++  if( g_cheats.integer ) {
++    int       entityList[ MAX_GENTITIES ], i, num;
++    vec3_t    range = { RELIC_SIZE, RELIC_SIZE, RELIC_HEIGHT }, mins, maxs;
++    gentity_t *ent;
++
++    VectorAdd( self->r.currentOrigin, range, maxs );
++    VectorSubtract( self->r.currentOrigin, range, mins );
++    num = trap_EntitiesInBox( mins, maxs, entityList, MAX_GENTITIES );
++    for( i = 0; i < num; i++ )
++    {
++      relic_t relic;
++
++      ent = &g_entities[ entityList[ i ] ];
++      if( !ent->client || ent->s.eType != ET_PLAYER || ent->health <= 0 )
++        continue;
++
++      relic = BG_GetRelic( &ent->client->ps );
++
++      // TJW's layout will save the secondary origin and angles information
++      // for all buildables. Since we need the infection to persist across
++      // layout loads/saves, we hijack one of the values which are otherwise
++      // unused.
++      self->s.angles2[ 0 ] = relic;
++    }
++  }
++
++  self->nextthink = level.time +
++                    BG_FindNextThinkForBuildable( self->s.modelindex );
++}
++
++/*
++===============
++RelicThink
++
++Relic think function
++===============
++*/
++void G_RelicThink( gentity_t *self )
++{
++  // Run physics for live (i.e. linked) relics only
++  if( !( self->s.eFlags & EF_DEAD ) )
++    G_Physics( self, level.time - level.previousTime );
++
++  // Not time for our think yet
++  if( self->nextthink > level.time )
++    return;
++
++  // Dead relic
++  if( self->s.eFlags & EF_DEAD )
++  {
++    // Too many relic entities
++    if( level.time > self->timestamp + RELIC_DEADTIME &&
++        ( level.relicEntities + level.relicFounts > g_relics.integer ||
++          level.relicEntities + level.relicFounts > RELIC_MAX ||
++          g_relicFountsOnly.integer ) )
++    {
++      G_FreeEntity( self );
++      level.relicEntities--;
++      return;
++    }
++
++    // Take a random walk
++    if( self->relicUnlinked )
++    {
++      trace_t tr;
++      vec3_t target;
++      int i;
++
++      // Free out of bounds entities
++      for( i = 0; i < 3; i++ )
++        if( self->r.currentOrigin[ i ] > RELIC_BOUNDS ||
++            self->r.currentOrigin[ i ] < -RELIC_BOUNDS )
++        {
++          G_FreeEntity( self );
++          return;
++        }
++
++      // Move a random distance toward a random location
++      VectorCopy( self->r.currentOrigin, target );
++      target[ 0 ] += RELIC_WALKDIST * crandom( );
++      target[ 1 ] += RELIC_WALKDIST * crandom( );
++      target[ 2 ] += RELIC_WALKDIST * crandom( );
++      trap_Trace( &tr, self->r.currentOrigin, self->r.mins, self->r.maxs,
++                  target, self->relicParentNum, RELIC_CONTENTS );
++      G_SetOrigin( self, tr.endpos );
++
++      self->nextthink = level.time + RELIC_DEADTHINK;
++    }
++    else if( self->timestamp + RELIC_DEADTIME < level.time )
++    {
++      trap_UnlinkEntity( self );
++      self->relicUnlinked = qtrue;
++      self->r.svFlags |= SVF_NOCLIENT;
++    }
++
++    // Is this relic ready to be brought back?
++    if( self->relicUnlinked && level.numRelics < g_relics.integer &&
++        self->timestamp + RELIC_WALKTIME < level.time )
++    {
++      self->s.modelindex = RandomRelic( self, -1, qfalse );
++      if( self->s.modelindex <= RLC_NONE )
++        return;
++      self->s.eFlags &= ~EF_DEAD;
++      self->s.pos.trTime = level.time;
++      self->s.pos.trDelta[ 0 ] = RELIC_VELOCITY * crandom();
++      self->s.pos.trDelta[ 1 ] = RELIC_VELOCITY * crandom();
++      self->s.pos.trDelta[ 2 ] = RELIC_VELOCITY;
++      self->r.svFlags &= ~SVF_NOCLIENT;
++      self->timestamp = level.time;
++      self->nextthink = level.time + RELIC_LIVETHINK;
++      self->relicUnlinked = qfalse;
++      trap_LinkEntity( self );
++    }
++
++    return;
++  }
++
++  // Too many relics
++  if( level.numRelics > g_relics.integer && RangeCheck( self ) )
++  {
++    KillRelic( self );
++    return;
++  }
++
++  // Relic timeout
++  if( self->timestamp + RELIC_TIMEOUT < level.time && self->timestamp +
++      ( self->s.number % 10 - 5 ) * 2000 + RELIC_LIFETIME < level.time )
++  {
++    // Do not disappear in front of a player
++    if( RangeCheck( self ) )
++    {
++      KillRelic( self );
++      return;
++    }
++    self->timestamp += RELIC_TIMEOUT;
++  }
++
++  // Check for pickups
++  if( self->timestamp + RELIC_TIMEOUT < level.time )
++  {
++    int       entityList[ MAX_GENTITIES ], i, num;
++    vec3_t    range = { RELIC_SIZE, RELIC_SIZE, RELIC_HEIGHT }, mins, maxs;
++    gentity_t *ent;
++
++    VectorAdd( self->r.currentOrigin, range, maxs );
++    VectorSubtract( self->r.currentOrigin, range, mins );
++    num = trap_EntitiesInBox( mins, maxs, entityList, MAX_GENTITIES );
++    for( i = 0; i < num; i++ )
++    {
++      relic_t relic;
++
++      ent = &g_entities[ entityList[ i ] ];
++      if( !ent->client || ent->s.eType != ET_PLAYER || ent->health <= 0 )
++        continue;
++
++      relic = BG_GetRelic( &ent->client->ps );
++
++      // Immunity relic
++      if( relic == RLC_IMMUNE || relic == self->s.modelindex )
++        continue;
++
++      // Can we take this relic?
++      if( !G_CanTakeRelic( ent, self->s.modelindex ) )
++        continue;
++
++      // Unknown relic
++      if( self->s.modelindex == RLC_UNKNOWN )
++        self->s.modelindex = RandomRelic( self, relic, qtrue );
++
++      // Did we just plague someone?
++      if( self->s.modelindex == RLC_PLAGUE )
++        ent->client->lastPlagueClient = NULL;
++
++      level.numRelics--;
++      G_EjectRelic( ent );
++      BG_SetRelic( &ent->client->ps, self->s.modelindex );
++      G_CalculateMaxHealth( ent, RLC_NONE );
++      self->relicPickupTime = level.time;
++      level.numRelics++;
++      KillRelic( self );
++      return;
++    }
++  }
++
++  self->nextthink = level.time + RELIC_LIVETHINK;
++}
++
++/*
++===============
++G_RelicRunFrame
++
++Called every frame
++===============
++*/
++void G_RelicRunFrame( void )
++{
++  int i, fountList[ RELIC_MAX ], entityList[ MAX_GENTITIES ], ents = 0,
++      founts = 0;
++  relic_t relic;
++
++  // Wait for things to settle down
++  if( level.framenum < RELIC_INITWAIT )
++    return;
++
++  // Clear level relic counts
++  for( i = 0; i < RLC_NUM_RELICS; i++ )
++    level.numRelic[ i ] = 0;
++
++  // Count the relics every frame
++  level.numRelics = 0;
++  level.relicEntities = 0;
++  level.relicFounts = 0;
++  for( i = 0; i < MAX_GENTITIES; i++ )
++  {
++    if( !g_entities[ i ].inuse )
++      continue;
++    switch( g_entities[ i ].s.eType) {
++
++    // Entities suitable for spawning dead relics:
++    default:
++    case ET_PUSH_TRIGGER:
++    case ET_TELEPORT_TRIGGER:
++    case ET_MOVER:
++    case ET_LEV2_ZAP_CHAIN:
++    case ET_MODELDOOR:
++    case ET_INVISIBLE:
++    case ET_PARTICLE_SYSTEM:
++      if( !g_entities[ i ].dontSpawnRelic )
++        entityList[ ents++ ] = i;
++      break;
++
++    // Entitites NOT suitable:
++    case ET_PLAYER:
++      relic = BG_ClientRelic( g_entities[ i ].client );
++      if( relic != RLC_NONE && g_entities[ i ].health > 0 )
++      {
++        if( relic <= RLC_NONE || relic >= RLC_NUM_RELICS )
++          continue;
++        level.numRelics++;
++        level.numRelic[ relic ]++;
++      }
++      break;
++    case ET_RELIC:
++      if( !( g_entities[ i ].s.eFlags & EF_DEAD ) )
++      {
++        relic = g_entities[ i ].s.modelindex;
++        if( relic <= RLC_NONE || relic >= RLC_NUM_RELICS )
++          continue;
++        level.numRelics++;
++        level.numRelic[ relic ]++;
++      }
++      level.relicEntities++;
++      break;
++    case ET_MISSILE:
++    case ET_BUILDABLE:
++
++      // The only buildable we like to spawn from is an available relic fount
++      if( g_entities[ i ].s.modelindex == BA_RELIC_FOUNT ) {
++        relic = (relic_t)g_entities[ i ].s.angles2[ 0 ];
++        if( !g_entities[ i ].dontSpawnRelic && founts < RELIC_MAX &&
++            g_entities[ i ].timestamp + RELIC_FOUNTWAIT < level.time &&
++            ( !relic || level.numRelic[ relic ] < g_relic[ relic ].integer ) )
++          fountList[ founts++ ] = i;
++        level.relicFounts++;
++      }
++    case ET_CORPSE:
++    case ET_SPEAKER: // these are never in good spots...
++      break;
++    }
++  }
++
++  // Sum up cvars
++  level.relicCvarSum = 0;
++  for( i = 0; i < RLC_NUM_RELICS; i++ )
++  {
++    if( g_relic[ i ].integer < 0 )
++      continue;
++    level.relicCvarSum += g_relic[ i ].integer;
++  }
++
++  // Spawn a relic from a fount if we need one
++  if( level.numRelics < g_relics.integer && founts ) {
++    int fount = rand( ) % founts;
++    gentity_t *self = g_entities + fountList[ fount ];
++
++    if( self->s.angles2[ 0 ] > 0 && self->s.angles2[ 0 ] < RLC_NUM_RELICS )
++      SpawnRelic( self, (relic_t)self->s.angles2[ 0 ] );
++    else
++      G_SpawnRelic( self );
++    self->timestamp = level.time;
++  }
++
++  // Spawn a dead relic entity out of a random entity on the map
++  if( level.relicEntities + level.relicFounts < g_relics.integer )
++    SpawnDeadRelic( g_entities + entityList[ rand( ) % ents ] );
++}
++
++/*
++===============
++G_RelicInit
++
++Called at game init
++===============
++*/
++void G_RelicInit( void )
++{
++}
 Index: src/game/g_local.h
 ===================================================================
 --- src/game/g_local.h	(revision 92)
