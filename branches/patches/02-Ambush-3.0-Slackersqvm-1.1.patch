@@ -1,38 +1,161 @@
-Index: src/game/g_local.h
+Index: src/game/g_bot.c
 ===================================================================
---- src/game/g_local.h	(revision 68)
-+++ src/game/g_local.h	(working copy)
-@@ -1462,6 +1501,30 @@
- extern  vmCvar_t  g_aimbotAdvertBanTime;
- extern  vmCvar_t  g_aimbotAdvertBanReason;
+--- src/game/g_bot.c	2009-08-08 14:41:02.000000000 +1000
++++ src/game/g_bot.c	2009-08-08 13:16:50.000000000 +1000
+@@ -150,6 +150,13 @@
+   bot->botFriendLastSeen = 0;
+   bot->botEnemyLastSeen = 0;
  
-+//ROTAX
-+extern  vmCvar_t  g_ambush_granger_s1;
-+extern  vmCvar_t  g_ambush_dretch_s2;
-+extern  vmCvar_t  g_ambush_basilisk_s3;
-+extern  vmCvar_t  g_ambush_basilisk2_s4;
-+extern  vmCvar_t  g_ambush_marauder_s5;
-+extern  vmCvar_t  g_ambush_marauder2_s6;
-+extern  vmCvar_t  g_ambush_dragon_s7;
-+extern  vmCvar_t  g_ambush_dragon2_s8;
-+extern  vmCvar_t  g_ambush_tyrants_to_win;
-+extern  vmCvar_t  g_ambush_dodge;
-+extern  vmCvar_t  g_ambush_dodge_random;
-+extern  vmCvar_t  g_ambush_rebuild_time;
-+extern  vmCvar_t  g_ambush_sec_to_start;
-+extern  vmCvar_t  g_ambush_stage_suicide;
-+extern  vmCvar_t  g_ambush_no_egg_ffoff;
-+extern  vmCvar_t  g_ambush;
-+extern  vmCvar_t  g_ambush_kill_spawns;
-+extern  vmCvar_t  g_ambush_att_buildables;
-+extern  vmCvar_t  g_ambush_range;
-+extern  int  ROTACAK_ambush_rebuild_time_temp;
-+extern  int  ROTACAK_ambush_stage;
-+extern  int  ROTACAK_ambush_kills;
++  //Ambush
++  if( g_ambush.integer == 1 )
++  {
++    trap_Printf( va( "You can't change aliens behavior in ambush mod\n" ) );
++    return;
++  }
 +
- void      trap_Printf( const char *fmt );
- void      trap_Error( const char *fmt );
- int       trap_Milliseconds( void );
+   if( !Q_stricmp( command, "regular" ) ) {
+     bot->botCommand = BOT_REGULAR;
+     //trap_SendServerCommand(-1, "print \"regular mode\n\"");
+@@ -1255,9 +1262,29 @@
+ 
+         botShootIfTargetInRange(self,self->botEnemy);
+         self->client->pers.cmd.forwardmove = forwardMove;
+-        self->client->pers.cmd.rightmove = -100;
+-        if(self->client->time1000 >= 500)
+-          self->client->pers.cmd.rightmove = 100;
++
++        //Ambush
++        if (g_ambush.integer == 1)
++        {
++          int uhyb = 0;
++
++          if (g_ambush_dodge_random.integer <= 0)
++            g_ambush_dodge_random.integer = 1;
++          if (g_ambush_dodge_random.integer != 1 || g_ambush_dodge.integer > 0)
++          {
++            srand( trap_Milliseconds( ) );
++            uhyb = (g_ambush_dodge.integer + (rand() % g_ambush_dodge_random.integer));
++            self->client->pers.cmd.rightmove = -uhyb;
++            if(self->client->time1000 >= 500)
++              self->client->pers.cmd.rightmove = uhyb;
++          }
++        }
++        else
++        {
++          self->client->pers.cmd.rightmove = -100;
++          if(self->client->time1000 >= 500)
++            self->client->pers.cmd.rightmove = 100;
++        }
+       }
+       break;
+     case BOT_FOLLOW_FRIEND_IDLE:
+@@ -1367,9 +1394,74 @@
+       self->client->pers.humanItemSelection = WP_MACHINEGUN;
+       G_PushSpawnQueue( &level.humanSpawnQueue, clientNum );
+     } else if( teamnum == PTE_ALIENS) {
+-      self->client->pers.classSelection = PCL_ALIEN_LEVEL0;
+-      self->client->ps.stats[ STAT_PCLASS ] = PCL_ALIEN_LEVEL0;
+-      G_PushSpawnQueue( &level.alienSpawnQueue, clientNum );
++      //Ambush
++      if (g_ambush.integer == 1)
++      {
++        if (ROTACAK_ambush_rebuild_time_temp < level.time && ((level.time - level.startTime) > (g_ambush_sec_to_start.integer * 1000)) )
++        {
++          srand( trap_Milliseconds( ) );
++          if (ROTACAK_ambush_stage == 1)//adv granger
++          {
++            self->client->pers.classSelection = PCL_ALIEN_BUILDER0_UPG;
++            self->client->ps.stats[ STAT_PCLASS ] = PCL_ALIEN_BUILDER0_UPG;
++            G_PushSpawnQueue( &level.alienSpawnQueue, clientNum );
++          }
++          else if (ROTACAK_ambush_stage == 2)//dretch
++          {
++            self->client->pers.classSelection = PCL_ALIEN_LEVEL0;
++            self->client->ps.stats[ STAT_PCLASS ] = PCL_ALIEN_LEVEL0;
++            G_PushSpawnQueue( &level.alienSpawnQueue, clientNum );
++          }
++          else if (ROTACAK_ambush_stage == 3)//basilisk
++          {
++            self->client->pers.classSelection = PCL_ALIEN_LEVEL1;
++            self->client->ps.stats[ STAT_PCLASS ] = PCL_ALIEN_LEVEL1;
++            G_PushSpawnQueue( &level.alienSpawnQueue, clientNum );
++          }
++          else if (ROTACAK_ambush_stage == 4)//adv basilisk
++          {
++            self->client->pers.classSelection = PCL_ALIEN_LEVEL1_UPG;
++            self->client->ps.stats[ STAT_PCLASS ] = PCL_ALIEN_LEVEL1_UPG;
++            G_PushSpawnQueue( &level.alienSpawnQueue, clientNum );
++          }
++          else if (ROTACAK_ambush_stage == 5)//marauder
++          {
++            self->client->pers.classSelection = PCL_ALIEN_LEVEL2;
++            self->client->ps.stats[ STAT_PCLASS ] = PCL_ALIEN_LEVEL2;
++            G_PushSpawnQueue( &level.alienSpawnQueue, clientNum );
++          }
++          else if (ROTACAK_ambush_stage == 6)//adv marauder
++          {
++            self->client->pers.classSelection = PCL_ALIEN_LEVEL2_UPG;
++            self->client->ps.stats[ STAT_PCLASS ] = PCL_ALIEN_LEVEL2_UPG;
++            G_PushSpawnQueue( &level.alienSpawnQueue, clientNum );
++          }
++          else if (ROTACAK_ambush_stage == 7)//dragon
++          {
++            self->client->pers.classSelection = PCL_ALIEN_LEVEL3;
++            self->client->ps.stats[ STAT_PCLASS ] = PCL_ALIEN_LEVEL3;
++            G_PushSpawnQueue( &level.alienSpawnQueue, clientNum );
++          }
++          else if (ROTACAK_ambush_stage == 8)//adv dragon
++          {
++            self->client->pers.classSelection = PCL_ALIEN_LEVEL3_UPG;
++            self->client->ps.stats[ STAT_PCLASS ] = PCL_ALIEN_LEVEL3_UPG;
++            G_PushSpawnQueue( &level.alienSpawnQueue, clientNum );
++          }
++          else if (ROTACAK_ambush_stage == 9)//tyrant
++          {
++            self->client->pers.classSelection = PCL_ALIEN_LEVEL4;
++            self->client->ps.stats[ STAT_PCLASS ] = PCL_ALIEN_LEVEL4;
++            G_PushSpawnQueue( &level.alienSpawnQueue, clientNum );
++          }
++        }
++      }
++      else
++      {
++        self->client->pers.classSelection = PCL_ALIEN_LEVEL0;
++        self->client->ps.stats[ STAT_PCLASS ] = PCL_ALIEN_LEVEL0;
++        G_PushSpawnQueue( &level.alienSpawnQueue, clientNum );
++      }
+     }
+   }
+ }
+@@ -1509,6 +1601,10 @@
+   vec3_t    mins, maxs;
+   gentity_t *target;
+ 
++  //Ambush
++  if (g_ambush.integer == 1)
++    vectorRange = 1.0f * g_ambush_range.integer;
++
+   VectorSet( range, vectorRange, vectorRange, vectorRange );
+   VectorAdd( self->client->ps.origin, range, maxs );
+   VectorSubtract( self->client->ps.origin, range, mins );
+Index: src/game/g_cmds.c
+===================================================================
+--- src/game/g_cmds.c	(revision 68)
++++ src/game/g_cmds.c	(working copy)
+@@ -3443,6 +3443,13 @@
+   }
+   else if( upgrade != UP_NONE )
+   {
++    //ROTAX  
++    if( g_ambush.integer && upgrade == UP_JETPACK)
++    {
++      trap_SendServerCommand( ent-g_entities, va( "print \"You can't buy jetpack in Ambush mod\n\"" ) );
++      return;
++    }
++    
+     //already got this?
+     if( BG_InventoryContainsUpgrade( upgrade, ent->client->ps.stats ) )
+     {
 Index: src/game/g_combat.c
 ===================================================================
 --- src/game/g_combat.c	(revision 68)
@@ -161,146 +284,41 @@ Index: src/game/g_combat.c
  /*
  ============
  G_Knockback
-Index: src/game/g_bot.c
+Index: src/game/g_local.h
 ===================================================================
---- src/game/g_bot.c	2009-08-08 14:41:02.000000000 +1000
-+++ src/game/g_bot.c	2009-08-08 13:16:50.000000000 +1000
-@@ -108,6 +108,13 @@
-   bot->botFriendLastSeen = 0;
-   bot->botEnemyLastSeen = 0;
+--- src/game/g_local.h	(revision 68)
++++ src/game/g_local.h	(working copy)
+@@ -1603,6 +1603,30 @@
+ extern  vmCvar_t  g_aimbotAdvertBanReason;
  
-+  //Ambush
-+  if( g_ambush.integer == 1 )
-+  {
-+    trap_Printf( va( "You can't change aliens behavior in ambush mod\n" ) );
-+    return;
-+  }
-+
-   if( !Q_stricmp( command, "regular" ) ) {
-     bot->botCommand = BOT_REGULAR;
-     //trap_SendServerCommand(-1, "print \"regular mode\n\"");
-@@ -214,9 +221,29 @@
  
-         botShootIfTargetInRange(self,self->botEnemy);
-         self->client->pers.cmd.forwardmove = forwardMove;
--        self->client->pers.cmd.rightmove = -100;
--        if(self->client->time1000 >= 500)
--          self->client->pers.cmd.rightmove = 100;
++//ROTAX
++extern  vmCvar_t  g_ambush_granger_s1;
++extern  vmCvar_t  g_ambush_dretch_s2;
++extern  vmCvar_t  g_ambush_basilisk_s3;
++extern  vmCvar_t  g_ambush_basilisk2_s4;
++extern  vmCvar_t  g_ambush_marauder_s5;
++extern  vmCvar_t  g_ambush_marauder2_s6;
++extern  vmCvar_t  g_ambush_dragon_s7;
++extern  vmCvar_t  g_ambush_dragon2_s8;
++extern  vmCvar_t  g_ambush_tyrants_to_win;
++extern  vmCvar_t  g_ambush_dodge;
++extern  vmCvar_t  g_ambush_dodge_random;
++extern  vmCvar_t  g_ambush_rebuild_time;
++extern  vmCvar_t  g_ambush_sec_to_start;
++extern  vmCvar_t  g_ambush_stage_suicide;
++extern  vmCvar_t  g_ambush_no_egg_ffoff;
++extern  vmCvar_t  g_ambush;
++extern  vmCvar_t  g_ambush_kill_spawns;
++extern  vmCvar_t  g_ambush_att_buildables;
++extern  vmCvar_t  g_ambush_range;
++extern  int  ROTACAK_ambush_rebuild_time_temp;
++extern  int  ROTACAK_ambush_stage;
++extern  int  ROTACAK_ambush_kills;
 +
-+        //Ambush
-+        if (g_ambush.integer == 1)
-+        {
-+          int uhyb = 0;
-+
-+          if (g_ambush_dodge_random.integer <= 0)
-+            g_ambush_dodge_random.integer = 1;
-+          if (g_ambush_dodge_random.integer != 1 || g_ambush_dodge.integer > 0)
-+          {
-+            srand( trap_Milliseconds( ) );
-+            uhyb = (g_ambush_dodge.integer + (rand() % g_ambush_dodge_random.integer));
-+            self->client->pers.cmd.rightmove = -uhyb;
-+            if(self->client->time1000 >= 500)
-+              self->client->pers.cmd.rightmove = uhyb;
-+          }
-+        }
-+        else
-+        {
-+          self->client->pers.cmd.rightmove = -100;
-+          if(self->client->time1000 >= 500)
-+            self->client->pers.cmd.rightmove = 100;
-+        }
-       }
-       break;
-     case BOT_IDLE:
-@@ -458,9 +485,74 @@
-       self->client->pers.humanItemSelection = WP_MACHINEGUN;
-       G_PushSpawnQueue( &level.humanSpawnQueue, clientNum );
-     } else if( teamnum == PTE_ALIENS) {
--      self->client->pers.classSelection = PCL_ALIEN_LEVEL0;
--      self->client->ps.stats[ STAT_PCLASS ] = PCL_ALIEN_LEVEL0;
--      G_PushSpawnQueue( &level.alienSpawnQueue, clientNum );
-+      //Ambush
-+      if (g_ambush.integer == 1)
-+      {
-+        if (ROTACAK_ambush_rebuild_time_temp < level.time && ((level.time - level.startTime) > (g_ambush_sec_to_start.integer * 1000)) )
-+        {
-+          srand( trap_Milliseconds( ) );
-+          if (ROTACAK_ambush_stage == 1)//adv granger
-+          {
-+            self->client->pers.classSelection = PCL_ALIEN_BUILDER0_UPG;
-+            self->client->ps.stats[ STAT_PCLASS ] = PCL_ALIEN_BUILDER0_UPG;
-+            G_PushSpawnQueue( &level.alienSpawnQueue, clientNum );
-+          }
-+          else if (ROTACAK_ambush_stage == 2)//dretch
-+          {
-+            self->client->pers.classSelection = PCL_ALIEN_LEVEL0;
-+            self->client->ps.stats[ STAT_PCLASS ] = PCL_ALIEN_LEVEL0;
-+            G_PushSpawnQueue( &level.alienSpawnQueue, clientNum );
-+          }
-+          else if (ROTACAK_ambush_stage == 3)//basilisk
-+          {
-+            self->client->pers.classSelection = PCL_ALIEN_LEVEL1;
-+            self->client->ps.stats[ STAT_PCLASS ] = PCL_ALIEN_LEVEL1;
-+            G_PushSpawnQueue( &level.alienSpawnQueue, clientNum );
-+          }
-+          else if (ROTACAK_ambush_stage == 4)//adv basilisk
-+          {
-+            self->client->pers.classSelection = PCL_ALIEN_LEVEL1_UPG;
-+            self->client->ps.stats[ STAT_PCLASS ] = PCL_ALIEN_LEVEL1_UPG;
-+            G_PushSpawnQueue( &level.alienSpawnQueue, clientNum );
-+          }
-+          else if (ROTACAK_ambush_stage == 5)//marauder
-+          {
-+            self->client->pers.classSelection = PCL_ALIEN_LEVEL2;
-+            self->client->ps.stats[ STAT_PCLASS ] = PCL_ALIEN_LEVEL2;
-+            G_PushSpawnQueue( &level.alienSpawnQueue, clientNum );
-+          }
-+          else if (ROTACAK_ambush_stage == 6)//adv marauder
-+          {
-+            self->client->pers.classSelection = PCL_ALIEN_LEVEL2_UPG;
-+            self->client->ps.stats[ STAT_PCLASS ] = PCL_ALIEN_LEVEL2_UPG;
-+            G_PushSpawnQueue( &level.alienSpawnQueue, clientNum );
-+          }
-+          else if (ROTACAK_ambush_stage == 7)//dragon
-+          {
-+            self->client->pers.classSelection = PCL_ALIEN_LEVEL3;
-+            self->client->ps.stats[ STAT_PCLASS ] = PCL_ALIEN_LEVEL3;
-+            G_PushSpawnQueue( &level.alienSpawnQueue, clientNum );
-+          }
-+          else if (ROTACAK_ambush_stage == 8)//adv dragon
-+          {
-+            self->client->pers.classSelection = PCL_ALIEN_LEVEL3_UPG;
-+            self->client->ps.stats[ STAT_PCLASS ] = PCL_ALIEN_LEVEL3_UPG;
-+            G_PushSpawnQueue( &level.alienSpawnQueue, clientNum );
-+          }
-+          else if (ROTACAK_ambush_stage == 9)//tyrant
-+          {
-+            self->client->pers.classSelection = PCL_ALIEN_LEVEL4;
-+            self->client->ps.stats[ STAT_PCLASS ] = PCL_ALIEN_LEVEL4;
-+            G_PushSpawnQueue( &level.alienSpawnQueue, clientNum );
-+          }
-+        }
-+      }
-+      else
-+      {
-+        self->client->pers.classSelection = PCL_ALIEN_LEVEL0;
-+        self->client->ps.stats[ STAT_PCLASS ] = PCL_ALIEN_LEVEL0;
-+        G_PushSpawnQueue( &level.alienSpawnQueue, clientNum );
-+      }
-     }
-   }
- }
-@@ -526,6 +618,10 @@
-   vec3_t    mins, maxs;
-   gentity_t *target;
- 
-+  //Ambush
-+  if (g_ambush.integer == 1)
-+    vectorRange = 1.0f * g_ambush_range.integer;
-+
-   VectorSet( range, vectorRange, vectorRange, vectorRange );
-   VectorAdd( self->client->ps.origin, range, maxs );
-   VectorSubtract( self->client->ps.origin, range, mins );
+ void      trap_Printf( const char *fmt );
+ void      trap_Error( const char *fmt );
+ int       trap_Milliseconds( void );
 Index: src/game/g_main.c
 ===================================================================
 --- src/game/g_main.c	(revision 68)
@@ -312,10 +330,10 @@ Index: src/game/g_main.c
 -#define QVM_NAME       "Slackers QVM" " (Lakitu7 5.5)"
 +#define QVM_NAME       "Slackers QVM" QVM_MODNAME " (Lakitu7 5.5)"
 +#define QVM_MODNAME    " (Ambush 3.0)"
- #define QVM_VERSIONNUM      "1.0+"
+ #define QVM_VERSIONNUM      "1.1"
  
  level_locals_t  level;
-@@ -219,6 +220,30 @@
+@@ -257,6 +258,30 @@
  vmCvar_t  g_aimbotAdvertBanTime;
  vmCvar_t  g_aimbotAdvertBanReason;
  
@@ -346,7 +364,7 @@ Index: src/game/g_main.c
  static cvarTable_t   gameCvarTable[ ] =
  {
    // don't override the cheat state set by the system
-@@ -417,7 +442,28 @@
+@@ -490,7 +515,28 @@
  
    { &g_aimbotAdvertBan, "g_aimbotAdvertBan", "0", CVAR_ARCHIVE, 0, qfalse  },
    { &g_aimbotAdvertBanTime, "g_aimbotAdvertBanTime", "0", CVAR_ARCHIVE, 0, qfalse  },
@@ -376,7 +394,7 @@ Index: src/game/g_main.c
  };
  
  static int gameCvarTableSize = sizeof( gameCvarTable ) / sizeof( gameCvarTable[ 0 ] );
-@@ -819,6 +865,15 @@
+@@ -968,6 +1014,15 @@
    trap_Cvar_Set( "g_suddenDeath", 0 );
    level.suddenDeathBeginTime = g_suddenDeathTime.integer * 60000;
  
@@ -392,7 +410,7 @@ Index: src/game/g_main.c
    G_Printf( "-----------------------------------\n" );
  
    G_RemapTeamShaders( );
-@@ -2412,7 +2467,30 @@
+@@ -2564,7 +2619,30 @@
    {
      //humans win
      level.lastWin = PTE_HUMANS;
@@ -423,21 +441,3 @@ Index: src/game/g_main.c
      trap_SetConfigstring( CS_WINNER, "Humans Win" );
      LogExit( "Humans win." );
      G_admin_maplog_result( "h" );
-Index: src/game/g_cmds.c
-===================================================================
---- src/game/g_cmds.c	(revision 68)
-+++ src/game/g_cmds.c	(working copy)
-@@ -3316,6 +3341,13 @@
-   }
-   else if( upgrade != UP_NONE )
-   {
-+    //ROTAX  
-+    if( g_ambush.integer && upgrade == UP_JETPACK)
-+    {
-+      trap_SendServerCommand( ent-g_entities, va( "print \"You can't buy jetpack in Ambush mod\n\"" ) );
-+      return;
-+    }
-+    
-     //already got this?
-     if( BG_InventoryContainsUpgrade( upgrade, ent->client->ps.stats ) )
-     {
