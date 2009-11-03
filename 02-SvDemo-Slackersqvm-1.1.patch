@@ -1,0 +1,601 @@
+Index: src/game/g_syscalls.asm
+===================================================================
+--- src/game/g_syscalls.asm	(revision 92)
++++ src/game/g_syscalls.asm	(working copy)
+@@ -50,6 +50,7 @@
+ equ trap_Parse_SourceFileAndLine    -47
+ 
+ equ trap_SendGameStat               -48
++equ trap_DemoCommand                -49
+ 
+ 
+ equ memset                          -101
+Index: src/game/g_syscalls.c
+===================================================================
+--- src/game/g_syscalls.c	(revision 92)
++++ src/game/g_syscalls.c	(working copy)
+@@ -257,6 +257,12 @@
+   return;
+ }
+ 
++void trap_DemoCommand( demoCommand_t cmd, const char *string )
++{
++  syscall( G_DEMO_COMMAND, cmd, string );
++  return;
++}
++
+ int trap_Parse_AddGlobalDefine( char *define )
+ {
+   return syscall( G_PARSE_ADD_GLOBAL_DEFINE, define );
+Index: src/game/g_local.h
+===================================================================
+--- src/game/g_local.h	(revision 92)
++++ src/game/g_local.h	(working copy)
+@@ -435,6 +435,7 @@
+   vec3_t              lastDeathLocation;
+   char                guid[ 33 ];
+   char                ip[ 16 ];
++  qboolean            demoClient;
+   qboolean            paused;
+   qboolean            muted;
+   int                 muteExpires;           // level.time at which a player is unmuted
+@@ -597,6 +598,15 @@
+   qboolean  crouch;
+ } damageRegion_t;
+ 
++// demo commands
++typedef enum
++{
++    DC_SERVER_COMMAND = -1,
++    DC_CLIENT_SET = 0,
++    DC_CLIENT_REMOVE,
++    DC_SET_STAGE
++} demoCommand_t;
++
+ #define MAX_ARMOUR_TEXT    8192
+ #define MAX_ARMOUR_REGIONS 16
+ 
+@@ -805,6 +815,8 @@
+   int               lastMsgTime;
+   int               mapRotationVoteTime;
+   
++  demoState_t       demoState;
++  
+   statsCounters_level alienStatsCounters;
+   statsCounters_level humanStatsCounters;
+   
+@@ -1139,6 +1151,7 @@
+ void CheckVote( void );
+ void CheckTeamVote( int teamnum );
+ void LogExit( const char *string );
++void G_DemoCommand( demoCommand_t cmd, const char *string );
+ int  G_TimeTilSuddenDeath( void );
+ void CheckMsgTimer( void );
+ qboolean G_Flood_Limited( gentity_t *ent );
+@@ -1530,3 +1543,4 @@
+ 
+ void      trap_SnapVector( float *v );
+ void      trap_SendGameStat( const char *data );
++void      trap_DemoCommand( demoCommand_t cmd, const char *string );
+Index: src/game/g_active.c
+===================================================================
+--- src/game/g_active.c	(revision 92)
++++ src/game/g_active.c	(working copy)
+@@ -415,7 +415,7 @@
+     if ( client->sess.spectatorClient >= 0 )
+     {
+       cl = &level.clients[ client->sess.spectatorClient ];
+-      if ( cl->sess.sessionTeam != TEAM_SPECTATOR )
++      if ( cl->sess.sessionTeam != TEAM_SPECTATOR || cl->pers.demoClient )
+         doPmove = qfalse;
+     }
+   }
+@@ -1930,7 +1930,7 @@
+     {
+       cl = &level.clients[ clientNum ];
+ 
+-      if( cl->pers.connected == CON_CONNECTED )
++      if( cl->pers.connected == CON_CONNECTED || cl->pers.demoClient )
+       {
+  
+     if( cl -> sess.spectatorState != SPECTATOR_FOLLOW ) 
+Index: src/game/g_session.c
+===================================================================
+--- src/game/g_session.c	(revision 92)
++++ src/game/g_session.c	(working copy)
+@@ -168,4 +168,9 @@
+     if( level.clients[ i ].pers.connected == CON_CONNECTED )
+       G_WriteClientSessionData( &level.clients[ i ] );
+   }
++
++  // write values for sv_maxclients and sv_democlients because they invalidate session data
++  trap_Cvar_Set( "session", va( "%i %i", 
++                 trap_Cvar_VariableIntegerValue( "sv_maxclients" ),
++                 trap_Cvar_VariableIntegerValue( "sv_democlients" ) ) );
+ }
+Index: src/game/g_public.h
+===================================================================
+--- src/game/g_public.h	(revision 92)
++++ src/game/g_public.h	(working copy)
+@@ -222,7 +222,8 @@
+   G_PARSE_READ_TOKEN,
+   G_PARSE_SOURCE_FILE_AND_LINE,
+ 
+-  G_SEND_GAMESTAT
++  G_SEND_GAMESTAT,
++  G_DEMO_COMMAND
+ } gameImport_t;
+ 
+ 
+@@ -253,10 +254,12 @@
+ 
+   GAME_RUN_FRAME,         // ( int levelTime );
+ 
+-  GAME_CONSOLE_COMMAND      // ( void );
++  GAME_CONSOLE_COMMAND,      // ( void );
+   // ConsoleCommand will be called when a command has been issued
+   // that is not recognized as a builtin function.
+   // The game can issue trap_argc() / trap_argv() commands to get the command
+   // and parameters.  Return qfalse if the game doesn't recognize it as a command.
++
++  GAME_DEMO_COMMAND         // ( int cmd, const char *string );
+ } gameExport_t;
+ 
+Index: src/game/g_main.c
+===================================================================
+--- src/game/g_main.c	(revision 92)
++++ src/game/g_main.c	(working copy)
+@@ -62,6 +62,7 @@
+ vmCvar_t  g_speed;
+ vmCvar_t  g_gravity;
+ vmCvar_t  g_cheats;
++vmCvar_t  g_demoState;
+ vmCvar_t  g_knockback;
+ vmCvar_t  g_quadfactor;
+ vmCvar_t  g_inactivity;
+@@ -238,6 +239,9 @@
+   // don't override the cheat state set by the system
+   { &g_cheats, "sv_cheats", "", 0, 0, qfalse },
+ 
++  // demo state
++  { &g_demoState, "sv_demoState", "", 0, 0, qfalse },
++
+   // noset vars
+   { NULL, "gamename", GAME_VERSION , CVAR_SERVERINFO | CVAR_ROM, 0, qfalse  },
+   { NULL, "gamedate", __DATE__ , CVAR_ROM, 0, qfalse  },
+@@ -451,6 +455,9 @@
+ void G_RunFrame( int levelTime );
+ void G_ShutdownGame( int restart );
+ void CheckExitRules( void );
++void G_DemoSetClient( void );
++void G_DemoRemoveClient( void );
++void G_DemoSetStage( void );
+ 
+ void G_CountSpawns( void );
+ void G_CalculateBuildPoints( void );
+@@ -506,6 +513,22 @@
+ 
+     case GAME_CONSOLE_COMMAND:
+       return ConsoleCommand( );
++
++    case GAME_DEMO_COMMAND:
++      switch ( arg0 )
++      {
++      case DC_CLIENT_SET:
++        G_DemoSetClient( );
++        break;
++      case DC_CLIENT_REMOVE:
++        G_DemoRemoveClient( );
++        break;
++      case DC_SET_STAGE:
++        G_DemoSetStage( );
++        break;
++
++      }
++      return 0;
+   }
+ 
+   return -1;
+@@ -706,6 +729,8 @@
+ void G_InitGame( int levelTime, int randomSeed, int restart )
+ {
+   int i;
++  char buffer[ MAX_CVAR_VALUE_STRING ];
++  int a, b;
+ 
+   srand( randomSeed );
+ 
+@@ -725,6 +750,11 @@
+   level.startTime = levelTime;
+   level.alienStage2Time = level.alienStage3Time =
+     level.humanStage2Time = level.humanStage3Time = level.startTime;
++  trap_Cvar_VariableStringBuffer( "session", buffer, sizeof( buffer ) );
++  sscanf( buffer, "%i %i", &a, &b );
++  if ( a != trap_Cvar_VariableIntegerValue( "sv_maxclients" ) ||
++       b != trap_Cvar_VariableIntegerValue( "sv_democlients" ) )
++    level.newSession = qtrue;
+ 
+   level.snd_fry = G_SoundIndex( "sound/misc/fry.wav" ); // FIXME standing in lava / slime
+ 
+@@ -884,6 +914,8 @@
+ */
+ void G_ShutdownGame( int restart )
+ {
++  int i, clients;
++
+   // in case of a map_restart
+   G_ClearVotes( );
+ 
+@@ -909,6 +941,11 @@
+   level.restarted = qfalse;
+   level.surrenderTeam = PTE_NONE;
+   trap_SetConfigstring( CS_WINNER, "" );
++
++  // clear all demo clients
++  clients = trap_Cvar_VariableIntegerValue( "sv_democlients" );
++  for( i = 0; i < clients; i++ )
++    trap_SetConfigstring( CS_PLAYERS + i, NULL );
+ }
+ 
+ 
+@@ -1478,6 +1515,8 @@
+   float         humanPlayerCountMod     = level.averageNumHumanClients / PLAYER_COUNT_MOD;
+   static int    lastAlienStageModCount  = 1;
+   static int    lastHumanStageModCount  = 1;
++  static int    lastAlienStage  = -1;
++  static int    lastHumanStage  = -1;
+ 
+   if( alienPlayerCountMod < 0.1f )
+     alienPlayerCountMod = 0.1f;
+@@ -1547,6 +1586,15 @@
+ 
+     lastHumanStageModCount = g_humanStage.modificationCount;
+   }
++
++  if ( level.demoState == DS_RECORDING &&
++       ( trap_Cvar_VariableIntegerValue( "g_alienStage" ) != lastAlienStage ||
++         trap_Cvar_VariableIntegerValue( "g_humanStage" ) != lastHumanStage ) )
++  {
++    lastAlienStage = trap_Cvar_VariableIntegerValue( "g_alienStage" );
++    lastHumanStage = trap_Cvar_VariableIntegerValue( "g_humanStage" );
++    G_DemoCommand( DC_SET_STAGE, va( "%d %d", lastHumanStage, lastAlienStage ) );
++  }
+ }
+ 
+ /*
+@@ -1614,13 +1662,15 @@
+   for( i = 0; i < level.maxclients; i++ )
+   {
+     P[ i ] = '-';
+-    if ( level.clients[ i ].pers.connected != CON_DISCONNECTED )
++    if ( level.clients[ i ].pers.connected != CON_DISCONNECTED ||
++         level.clients[ i ].pers.demoClient )
+     {
+       level.sortedClients[ level.numConnectedClients ] = i;
+       level.numConnectedClients++;
+       P[ i ] = (char)'0' + level.clients[ i ].pers.teamSelection;
+ 
+-      if( level.clients[ i ].pers.connected != CON_CONNECTED )
++      if( level.clients[ i ].pers.connected != CON_CONNECTED &&
++         !level.clients[ i ].pers.demoClient )
+         continue;
+ 
+       level.numVotingClients++;
+@@ -1671,8 +1721,86 @@
+     SendScoreboardMessageToAllClients( );
+ }
+ 
++/*
++============
++G_DemoCommand
+ 
++Store a demo command to a demo if we are recording
++============
++*/
++void G_DemoCommand( demoCommand_t cmd, const char *string )
++{
++  if( level.demoState == DS_RECORDING )
++    trap_DemoCommand( cmd, string );
++}
++
+ /*
++============
++G_DemoSetClient
++
++Mark a client as a demo client and load info into it
++============
++*/
++void G_DemoSetClient( void )
++{
++  char buffer[ MAX_INFO_STRING ];
++  int clientNum;
++  gclient_t *client;
++  char *s;
++
++  trap_Argv( 0, buffer, sizeof( buffer ) );
++  clientNum = atoi( buffer );
++  client = level.clients + clientNum;
++  client->pers.demoClient = qtrue;
++
++  trap_Argv( 1, buffer, sizeof( buffer ) );
++  s = Info_ValueForKey( buffer, "n" );
++  if( *s )
++    Q_strncpyz( client->pers.netname, s, sizeof( client->pers.netname ) );
++  s = Info_ValueForKey( buffer, "t" );
++  if( *s )
++    client->pers.teamSelection = atoi( s );
++  client->sess.spectatorState = SPECTATOR_NOT;
++  trap_SetConfigstring( CS_PLAYERS + clientNum, buffer );
++}
++
++/*
++============
++G_DemoRemoveClient
++
++Unmark a client as a demo client
++============
++*/
++void G_DemoRemoveClient( void )
++{
++  char buffer[ 3 ];
++  int clientNum;
++
++  trap_Argv( 0, buffer, sizeof( buffer ) );
++  clientNum = atoi( buffer );
++  level.clients[clientNum].pers.demoClient = qfalse;
++  trap_SetConfigstring( CS_PLAYERS + clientNum, NULL );
++}
++
++/*
++============
++G_DemoSetStage
++
++Set the stages in a demo
++============
++*/
++void G_DemoSetStage( void )
++{
++  char buffer[ 2 ];
++
++  trap_Argv( 0, buffer, sizeof( buffer ) );
++  trap_Cvar_Set( "g_humanStage", buffer );
++  trap_Argv( 1, buffer, sizeof( buffer ) );
++  trap_Cvar_Set( "g_alienStage", buffer );
++}
++
++
++/*
+ ========================================================================
+ 
+ MAP CHANGING
+@@ -1915,7 +2043,6 @@
+     if( level.clients[ i ].pers.connected == CON_CONNECTED )
+       level.clients[ i ].pers.connected = CON_CONNECTING;
+   }
+-
+ }
+ /*
+ =================
+@@ -2382,6 +2509,10 @@
+ */
+ void CheckExitRules( void )
+ {
++  // don't exit in demos
++  if( level.demoState == DS_PLAYBACK )
++    return;
++
+   // if at the intermission, wait for all non-bots to
+   // signal ready, then go to next level
+   if( level.intermissiontime )
+@@ -2771,6 +2902,54 @@
+ }
+ 
+ /*
++==================
++CheckDemo
++==================
++*/
++void CheckDemo( void )
++{
++  int i;
++
++  // Don't do anything if no change
++  if( g_demoState.integer == level.demoState )
++    return;
++  level.demoState = g_demoState.integer;
++
++  // log all connected clients
++  if( g_demoState.integer == DS_RECORDING )
++  {
++    for( i = 0; i < level.maxclients; i++ )
++    {
++      if( level.clients[ i ].pers.connected != CON_DISCONNECTED )
++      {
++        char userinfo[ MAX_INFO_STRING ];
++        trap_GetConfigstring( CS_PLAYERS + i, userinfo, sizeof(userinfo) );
++        G_DemoCommand( DC_CLIENT_SET, va( "%d %s", i, userinfo ) );
++      }
++    }
++  }
++
++  // empty teams and display a message
++  else if( g_demoState.integer == DS_PLAYBACK )
++  {
++    trap_SendServerCommand( -1, "print \"A demo has been started on the server.\n\"" );
++    for( i = 0; i < level.maxclients; i++ )
++    {
++      if( level.clients[ i ].pers.teamSelection != PTE_NONE )
++        G_ChangeTeam( g_entities + i, PTE_NONE );
++    }
++  }
++
++  // clear all demo clients
++  if( g_demoState.integer == DS_NONE || g_demoState.integer == DS_PLAYBACK )
++  {
++    int clients = trap_Cvar_VariableIntegerValue( "sv_democlients" );
++    for( i = 0; i < clients; i++ )
++      trap_SetConfigstring( CS_PLAYERS + i, NULL );
++  }
++}
++
++/*
+ =============
+ G_RunThink
+ 
+@@ -2863,13 +3042,16 @@
+   // get any cvar changes
+   G_UpdateCvars( );
+ 
++  // check demo state
++  CheckDemo( );
++
+   //
+   // go through all allocated objects
+   //
+   start = trap_Milliseconds( );
+   ent = &g_entities[ 0 ];
+ 
+-  for( i = 0; i < level.num_entities; i++, ent++ )
++  for( i = 0; i < ( level.demoState == DS_PLAYBACK ? g_maxclients.integer : level.num_entities ); i++, ent++ )
+   {
+     if( !ent->inuse )
+       continue;
+Index: src/game/g_admin.c
+===================================================================
+--- src/game/g_admin.c	(revision 92)
++++ src/game/g_admin.c	(working copy)
+@@ -3299,7 +3299,11 @@
+     ADMP( va( "^3!putteam: ^7%s ^7is already on the %s team\n", vic->client->pers.netname, teamdesc ) );
+     return qfalse;
+   }
+-
++  if( level.demoState == DS_PLAYBACK )
++  {
++    ADMP( "^3!putteam: ^7cannot join a team while a demo is playing\n" );
++    return qfalse;
++  }
+   if( useDuration == qtrue && seconds > 0 ) {
+     vic->client->pers.specExpires = level.time + ( seconds * 1000 );
+   }
+Index: src/game/g_utils.c
+===================================================================
+--- src/game/g_utils.c	(revision 92)
++++ src/game/g_utils.c	(working copy)
+@@ -168,6 +168,8 @@
+         trap_SendServerCommand( i, cmd );
+     }
+   }
++
++  G_DemoCommand( DC_SERVER_COMMAND, cmd );
+ }
+ 
+ 
+Index: src/game/g_client.c
+===================================================================
+--- src/game/g_client.c	(revision 92)
++++ src/game/g_client.c	(working copy)
+@@ -1375,8 +1375,12 @@
+       teamLeader, BG_ClientListString( &client->sess.ignoreList ) );
+ 
+     trap_SetConfigstring( CS_PLAYERS + clientNum, userinfo );
++    // log to demo
++    G_DemoCommand( DC_CLIENT_SET, va( "%d %s", clientNum, userinfo ) );
+   } else {
+     trap_SetConfigstring( CS_PLAYERS + clientNum, "" );
++    // log to demo
++    G_DemoCommand( DC_CLIENT_SET, va( "%d %s", clientNum, "" ) );
+   }
+   /*G_LogPrintf( "ClientUserinfoChanged: %i %s\n", clientNum, userinfo );*/
+ }
+@@ -1570,6 +1574,7 @@
+ {
+   gentity_t *ent;
+   gclient_t *client;
++  char      userinfo[ MAX_INFO_STRING ];
+   int       flags;
+ 
+   ent = g_entities + clientNum;
+@@ -1620,6 +1625,10 @@
+   }
+   G_LogPrintf( "ClientBegin: %i\n", clientNum );
+ 
++  // log to demo
++  trap_GetConfigstring( CS_PLAYERS + clientNum, userinfo, sizeof(userinfo) );
++  G_DemoCommand( DC_CLIENT_SET, va( "%d %s", clientNum, userinfo ) );
++
+   if( g_clientUpgradeNotice.integer )
+   {
+     if( !Q_stricmp( ent->client->pers.guid, "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" ) )
+@@ -2035,5 +2044,7 @@
+ 
+   trap_SetConfigstring( CS_PLAYERS + clientNum, "");
+ 
++  G_DemoCommand( DC_CLIENT_REMOVE, va( "%d", clientNum ) );
++
+   CalculateRanks( );
+ }
+Index: src/game/g_cmds.c
+===================================================================
+--- src/game/g_cmds.c	(revision 92)
++++ src/game/g_cmds.c	(working copy)
+@@ -801,6 +801,12 @@
+   
+   if( !Q_stricmpn( s, "spec", 4 ) )
+     team = PTE_NONE;
++  else if( level.demoState == DS_PLAYBACK )
++  {
++    trap_SendServerCommand( ent-g_entities, "print \"You cannot join a team "
++      "while a demo is being played\n\"" );
++    return;
++  }
+   else if( !force && ent->client->pers.teamSelection == PTE_NONE &&
+            g_maxGameClients.integer && level.numPlayingClients >=
+            g_maxGameClients.integer )
+@@ -1086,6 +1092,7 @@
+       Com_sprintf( name, sizeof( name ), "%s%s%c%c"EC": ", prefix,
+                    ent->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE );
+       color = COLOR_GREEN;
++      G_DemoCommand( DC_SERVER_COMMAND, va( "chat \"%s^2%s\"", name, chatText ) );
+       break;
+ 
+     case SAY_TEAM:
+@@ -1101,6 +1108,7 @@
+         color = COLOR_YELLOW;
+       else
+         color = COLOR_CYAN;
++      G_DemoCommand( DC_SERVER_COMMAND, va( "tchat \"%s^%c%s\"", name, color, chatText ) );
+       break;
+ 
+     case SAY_TELL:
+@@ -1119,6 +1127,7 @@
+       Com_sprintf( name, sizeof( name ), "^2%s^7%s%s%c%c"EC" ", g_actionPrefix.string, prefix,
+                    ent->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE );
+       color = COLOR_WHITE;
++      G_DemoCommand( DC_SERVER_COMMAND, va( "chat \"%s%s\"", name, chatText ) );
+       break;
+ 
+     case SAY_ACTION_T:
+@@ -1130,6 +1139,7 @@
+         Com_sprintf( name, sizeof( name ), EC"^5%s^7%s%c%c"EC""EC" ", g_actionPrefix.string, 
+           ent->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE );
+       color = COLOR_WHITE;
++      G_DemoCommand( DC_SERVER_COMMAND, va( "tchat \"%s%s\"", name, chatText ) );
+       break;
+       
+       case SAY_ADMINS:
+@@ -4349,11 +4359,13 @@
+       continue;
+ 
+     // can only follow connected clients
+-    if( level.clients[ clientnum ].pers.connected != CON_CONNECTED )
++    if( level.clients[ clientnum ].pers.connected != CON_CONNECTED &&
++        !level.clients[ clientnum ].pers.demoClient )
+       continue;
+ 
+     // can't follow another spectator
+-     if( level.clients[ clientnum ].pers.teamSelection == PTE_NONE )
++     if( level.clients[ clientnum ].pers.teamSelection == PTE_NONE &&
++        !level.clients[ clientnum ].pers.demoClient )
+        continue;
+      
+       // can only follow teammates when dead and on a team
