@@ -10,7 +10,7 @@ Arcade
 AMP (Advanced Map Patch)
  * Version: _0.1_
  * Author: _Troy_
- * Link: [http://projects.tremulous.c4.fr/projects/invasion Invasion Mod]
+ * Link: [http://blackout.imn2rc.com/index.php Blackout project]
  * install instructions:
   # apply [http://slackers-qvm.googlecode.com/svn/branches/patches/02-AMP-0.1-Slackersqvm-1.1.patch AMP Patch]
 
