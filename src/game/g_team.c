@@ -1,7 +1,7 @@
 /*
 ===========================================================================
 Copyright (C) 1999-2005 Id Software, Inc.
-Copyright (C) 2000-2006 Tim Angus
+Copyright (C) 2000-2009 Darklegion Development
 
 This file is part of Tremulous.
 
@@ -32,7 +32,7 @@ void QDECL PrintMsg( gentity_t *ent, const char *fmt, ... )
 
   va_start( argptr,fmt );
 
-  if( vsprintf( msg, fmt, argptr ) > sizeof( msg ) )
+  if( Q_vsnprintf( msg, sizeof( msg ), fmt, argptr ) > sizeof( msg ) )
     G_Error ( "PrintMsg overrun" );
 
   va_end( argptr );
@@ -44,6 +44,23 @@ void QDECL PrintMsg( gentity_t *ent, const char *fmt, ... )
   trap_SendServerCommand( ( ( ent == NULL ) ? -1 : ent-g_entities ), va( "print \"%s\"", msg ) );
 }
 
+/*
+================
+G_TeamFromString
+
+Return the team referenced by a string
+================
+*/
+team_t G_TeamFromString( char *str )
+{
+  switch( tolower( *str ) )
+  {
+    case '0': case 's': return TEAM_NONE;
+    case '1': case 'a': return TEAM_ALIENS;
+    case '2': case 'h': return TEAM_HUMANS;
+    default: return NUM_TEAMS;
+  }
+}
 
 /*
 ==============
@@ -62,6 +79,155 @@ qboolean OnSameTeam( gentity_t *ent1, gentity_t *ent2 )
 }
 
 /*
+==================
+G_ClientListForTeam
+==================
+*/
+static clientList_t G_ClientListForTeam( team_t team )
+{
+  int           i;
+  clientList_t  clientList;
+
+  Com_Memset( &clientList, 0, sizeof( clientList_t ) );
+
+  for( i = 0; i < g_maxclients.integer; i++ )
+  {
+    gentity_t *ent = g_entities + i;
+    if( ent->client->pers.connected != CON_CONNECTED )
+      continue;
+
+    if( ent->inuse && ( ent->client->ps.stats[ STAT_TEAM ] == team ) )
+      Com_ClientListAdd( &clientList, ent->client->ps.clientNum );
+  }
+
+  return clientList;
+}
+
+/*
+==================
+G_UpdateTeamConfigStrings
+==================
+*/
+void G_UpdateTeamConfigStrings( void )
+{
+  clientList_t alienTeam = G_ClientListForTeam( TEAM_ALIENS );
+  clientList_t humanTeam = G_ClientListForTeam( TEAM_HUMANS );
+
+  if( level.intermissiontime )
+  {
+    // No restrictions once the game has ended
+    Com_Memset( &alienTeam, 0, sizeof( clientList_t ) );
+    Com_Memset( &humanTeam, 0, sizeof( clientList_t ) );
+  }
+
+  trap_SetConfigstringRestrictions( CS_VOTE_TIME + TEAM_ALIENS,   &humanTeam );
+  trap_SetConfigstringRestrictions( CS_VOTE_STRING + TEAM_ALIENS, &humanTeam );
+  trap_SetConfigstringRestrictions( CS_VOTE_YES + TEAM_ALIENS,    &humanTeam );
+  trap_SetConfigstringRestrictions( CS_VOTE_NO + TEAM_ALIENS,     &humanTeam );
+
+  trap_SetConfigstringRestrictions( CS_VOTE_TIME + TEAM_HUMANS,   &alienTeam );
+  trap_SetConfigstringRestrictions( CS_VOTE_STRING + TEAM_HUMANS, &alienTeam );
+  trap_SetConfigstringRestrictions( CS_VOTE_YES + TEAM_HUMANS,    &alienTeam );
+  trap_SetConfigstringRestrictions( CS_VOTE_NO + TEAM_HUMANS,     &alienTeam );
+
+  trap_SetConfigstringRestrictions( CS_ALIEN_STAGES, &humanTeam );
+  trap_SetConfigstringRestrictions( CS_HUMAN_STAGES, &alienTeam );
+}
+
+/*
+==================
+G_LeaveTeam
+==================
+*/
+void G_LeaveTeam( gentity_t *self )
+{
+  team_t    team = self->client->pers.teamSelection;
+  gentity_t *ent;
+  int       i;
+
+  if( team == TEAM_ALIENS )
+    G_RemoveFromSpawnQueue( &level.alienSpawnQueue, self->client->ps.clientNum );
+  else if( team == TEAM_HUMANS )
+    G_RemoveFromSpawnQueue( &level.humanSpawnQueue, self->client->ps.clientNum );
+  else
+  {
+    if( self->client->sess.spectatorState == SPECTATOR_FOLLOW )
+      G_StopFollowing( self );
+    return;
+  }
+
+  // stop any following clients
+  G_StopFromFollowing( self );
+
+  G_Vote( self, team, qfalse );
+  self->suicideTime = 0;
+
+  for( i = 0; i < level.num_entities; i++ )
+  {
+    ent = &g_entities[ i ];
+    if( !ent->inuse )
+      continue;
+
+    if( ent->client && ent->client->pers.connected == CON_CONNECTED )
+    {
+      // cure poison
+      if( ent->client->ps.stats[ STAT_STATE ] & SS_POISONED &&
+          ent->client->lastPoisonClient == self )
+        ent->client->ps.stats[ STAT_STATE ] &= ~SS_POISONED;
+    }
+    else if( ent->s.eType == ET_MISSILE && ent->r.ownerNum == self->s.number )
+      G_FreeEntity( ent );
+  }
+}
+
+/*
+=================
+G_ChangeTeam
+=================
+*/
+void G_ChangeTeam( gentity_t *ent, team_t newTeam )
+{
+  team_t  oldTeam = ent->client->pers.teamSelection;
+
+  if( oldTeam == newTeam )
+    return;
+
+  G_LeaveTeam( ent );
+  ent->client->pers.teamSelection = newTeam;
+  ent->client->pers.classSelection = PCL_NONE;
+  ClientSpawn( ent, NULL, NULL, NULL );
+  ent->client->pers.joinedATeam = qtrue;
+  ent->client->pers.teamChangeTime = level.time;
+
+  if( oldTeam == TEAM_HUMANS && newTeam == TEAM_ALIENS )
+  {
+    // Convert from human to alien credits
+    ent->client->pers.credit =
+      (int)( ent->client->pers.credit *
+             ALIEN_MAX_CREDITS / HUMAN_MAX_CREDITS + 0.5f );
+  }
+  else if( oldTeam == TEAM_ALIENS && newTeam == TEAM_HUMANS )
+  {
+    // Convert from alien to human credits
+    ent->client->pers.credit =
+      (int)( ent->client->pers.credit *
+             HUMAN_MAX_CREDITS / ALIEN_MAX_CREDITS + 0.5f );
+  }
+
+  // Copy credits to ps for the client
+  ent->client->ps.persistant[ PERS_CREDIT ] = ent->client->pers.credit;
+
+  ClientUserinfoChanged( ent->client->ps.clientNum );
+
+  G_UpdateTeamConfigStrings( );
+
+  G_LogPrintf( "ChangeTeam: %d %s: %s" S_COLOR_WHITE " switched teams\n",
+    ent - g_entities, BG_TeamName( newTeam ), ent->client->pers.netname );
+
+  TeamplayInfoMessage( ent );
+}
+
+/*
 ===========
 Team_GetLocation
 
@@ -72,23 +238,18 @@ gentity_t *Team_GetLocation( gentity_t *ent )
 {
   gentity_t   *eloc, *best;
   float       bestlen, len;
-  vec3_t      origin;
 
   best = NULL;
   bestlen = 3.0f * 8192.0f * 8192.0f;
 
-  VectorCopy( ent->r.currentOrigin, origin );
-
   for( eloc = level.locationHead; eloc; eloc = eloc->nextTrain )
   {
-    len = ( origin[ 0 ] - eloc->r.currentOrigin[ 0 ] ) * ( origin[ 0 ] - eloc->r.currentOrigin[ 0 ] )
-        + ( origin[ 1 ] - eloc->r.currentOrigin[ 1 ] ) * ( origin[ 1 ] - eloc->r.currentOrigin[ 1 ] )
-        + ( origin[ 2 ] - eloc->r.currentOrigin[ 2 ] ) * ( origin[ 2 ] - eloc->r.currentOrigin[ 2 ] );
+    len = DistanceSquared( ent->r.currentOrigin, eloc->r.currentOrigin );
 
     if( len > bestlen )
       continue;
 
-    if( !trap_InPVS( origin, eloc->r.currentOrigin ) )
+    if( !trap_InPVS( ent->r.currentOrigin, eloc->r.currentOrigin ) )
       continue;
 
     bestlen = len;
@@ -99,119 +260,115 @@ gentity_t *Team_GetLocation( gentity_t *ent )
 }
 
 
-/*
-===========
-Team_GetLocationMsg
-
-Report a location message for the player. Uses placed nearby target_location entities
-============
-*/
-qboolean Team_GetLocationMsg( gentity_t *ent, char *loc, int loclen )
-{
-  gentity_t *best;
-
-  best = Team_GetLocation( ent );
-
-  if( !best )
-    return qfalse;
-
-  if( best->count )
-  {
-    if( best->count < 0 )
-      best->count = 0;
-
-    if( best->count > 7 )
-      best->count = 7;
-
-    Com_sprintf( loc, loclen, "%c%c%s" S_COLOR_WHITE, Q_COLOR_ESCAPE, best->count + '0', best->message );
-  }
-  else
-    Com_sprintf( loc, loclen, "%s", best->message );
-
-  return qtrue;
-}
-
-
 /*---------------------------------------------------------------------------*/
-
-static int QDECL SortClients( const void *a, const void *b )
-{
-  return *(int *)a - *(int *)b;
-}
-
 
 /*
 ==================
-TeamplayLocationsMessage
+TeamplayInfoMessage
 
 Format:
-  clientNum location health armor weapon powerups
+  clientNum location health weapon upgrade
 
 ==================
 */
 void TeamplayInfoMessage( gentity_t *ent )
 {
-  char      entry[ 1024 ];
-  char      string[ 8192 ];
-  int       stringlength;
-  int       i, j;
+  char      entry[ 19 ], string[ 1143 ];
+  int       i, j; 
+  int       team, stringlength;
+  int       sent = 0;
   gentity_t *player;
-  int       cnt;
-  int       h, a = 0;
-  int       clients[ TEAM_MAXOVERLAY ];
+  gclient_t *cl;
+  upgrade_t upgrade = UP_NONE;
+  int       curWeaponClass = WP_NONE ; // sends weapon for humans, class for aliens
+  char      *tmp;
 
-  if( ! ent->client->pers.teamInfo )
-    return;
+  if( !g_allowTeamOverlay.integer )
+     return;
 
-  // figure out what client should be on the display
-  // we are limited to 8, but we want to use the top eight players
-  // but in client order (so they don't keep changing position on the overlay)
-  for( i = 0, cnt = 0; i < g_maxclients.integer && cnt < TEAM_MAXOVERLAY; i++ )
+  if( !ent->client->pers.teamInfo )
+     return;
+
+  if( ent->client->pers.teamSelection == TEAM_NONE )
   {
-    player = g_entities + level.sortedClients[ i ];
-
-    if( player->inuse && player->client->sess.sessionTeam ==
-        ent->client->sess.sessionTeam )
-      clients[ cnt++ ] = level.sortedClients[ i ];
+    if( ent->client->sess.spectatorState == SPECTATOR_FREE ||
+        ent->client->sess.spectatorClient < 0 )
+      return;
+    team = g_entities[ ent->client->sess.spectatorClient ].client->
+      pers.teamSelection;
   }
+  else
+    team = ent->client->pers.teamSelection;
 
-  // We have the top eight players, sort them by clientNum
-  qsort( clients, cnt, sizeof( clients[ 0 ] ), SortClients );
-
-  // send the latest information on all clients
-  string[ 0 ] = 0;
+  string[ 0 ] = '\0';
   stringlength = 0;
 
-  for( i = 0, cnt = 0; i < g_maxclients.integer && cnt < TEAM_MAXOVERLAY; i++)
+  for( i = 0; i < MAX_CLIENTS; i++)
   {
-    player = g_entities + i;
+    player = g_entities + i ;
+    cl = player->client;
 
-    if( player->inuse && player->client->sess.sessionTeam ==
-        ent->client->sess.sessionTeam )
+    if( ent == player || !cl || team != cl->pers.teamSelection ||
+        !player->inuse )
+      continue;
+
+    if( cl->sess.spectatorState != SPECTATOR_NOT )
     {
-      h = player->client->ps.stats[ STAT_HEALTH ];
-
-      if( h < 0 )
-        h = 0;
-
-      Com_sprintf( entry, sizeof( entry ),
-        " %i %i %i %i %i %i",
-//        level.sortedClients[i], player->client->pers.teamState.location, h, a,
-        i, player->client->pers.teamState.location, h, a,
-        player->client->ps.weapon, player->s.powerups );
-
-      j = strlen( entry );
-
-      if( stringlength + j > sizeof( string ) )
-        break;
-
-      strcpy( string + stringlength, entry );
-      stringlength += j;
-      cnt++;
+      curWeaponClass = WP_NONE;
+      upgrade = UP_NONE;
     }
+    else if ( cl->pers.teamSelection == TEAM_HUMANS )
+    {
+      curWeaponClass = cl->ps.weapon;
+
+      if( BG_InventoryContainsUpgrade( UP_BATTLESUIT, cl->ps.stats ) )
+        upgrade = UP_BATTLESUIT;
+      else if( BG_InventoryContainsUpgrade( UP_JETPACK, cl->ps.stats ) )
+        upgrade = UP_JETPACK;
+      else if( BG_InventoryContainsUpgrade( UP_BATTPACK, cl->ps.stats ) )
+        upgrade = UP_BATTPACK;
+      else if( BG_InventoryContainsUpgrade( UP_HELMET, cl->ps.stats ) )
+        upgrade = UP_HELMET;
+      else if( BG_InventoryContainsUpgrade( UP_LIGHTARMOUR, cl->ps.stats ) )
+        upgrade = UP_LIGHTARMOUR;
+      else
+        upgrade = UP_NONE;
+    }
+    else if( cl->pers.teamSelection == TEAM_ALIENS )
+    {
+      curWeaponClass = cl->ps.stats[ STAT_CLASS ];
+      upgrade = UP_NONE;
+    }
+ 
+    tmp = va( "%i %i %i %i",
+      player->client->pers.location,
+      player->client->ps.stats[ STAT_HEALTH ] < 1 ? 0 :
+        player->client->ps.stats[ STAT_HEALTH ],
+      curWeaponClass, 
+      upgrade );
+
+    if( !strcmp( ent->client->pers.cinfo[ i ], tmp ) )
+      continue;
+
+    Q_strncpyz( ent->client->pers.cinfo[ i ], tmp,
+      sizeof( ent->client->pers.cinfo[ i ] ) );
+
+    Com_sprintf( entry, sizeof( entry ), " %i %s", i, tmp );
+
+    j = strlen( entry );
+
+    if( stringlength + j > sizeof( string ) )
+      break;
+
+    strcpy( string + stringlength, entry );
+    stringlength += j;
+    sent++;
   }
 
-  trap_SendServerCommand( ent - g_entities, va( "tinfo %i %s", cnt, string ) );
+  if( !sent )
+    return; 
+
+  trap_SendServerCommand( ent - g_entities, va( "tinfo%s", string ) );
 }
 
 void CheckTeamStatus( void )
@@ -229,16 +386,16 @@ void CheckTeamStatus( void )
       if( ent->client->pers.connected != CON_CONNECTED )
         continue;
 
-      if( ent->inuse && ( ent->client->ps.stats[ STAT_PTEAM ] == PTE_HUMANS ||
-                          ent->client->ps.stats[ STAT_PTEAM ] == PTE_ALIENS ) )
+      if( ent->inuse && ( ent->client->ps.stats[ STAT_TEAM ] == TEAM_HUMANS ||
+                          ent->client->ps.stats[ STAT_TEAM ] == TEAM_ALIENS ) )
       {
 
         loc = Team_GetLocation( ent );
 
         if( loc )
-          ent->client->pers.teamState.location = loc->health;
+          ent->client->pers.location = loc->s.generic1;
         else
-          ent->client->pers.teamState.location = 0;
+          ent->client->pers.location = 0;
       }
     }
 
@@ -248,29 +405,8 @@ void CheckTeamStatus( void )
       if( ent->client->pers.connected != CON_CONNECTED )
         continue;
 
-      if( ent->inuse && ( ent->client->ps.stats[ STAT_PTEAM ] == PTE_HUMANS ||
-                          ent->client->ps.stats[ STAT_PTEAM ] == PTE_ALIENS ) )
+      if( ent->inuse )
         TeamplayInfoMessage( ent );
     }
-  }
-
-  //Warn on unbalanced teams
-  if ( g_teamImbalanceWarnings.integer && !level.intermissiontime && level.time - level.lastTeamUnbalancedTime > ( g_teamImbalanceWarnings.integer * 1000 ) && level.numTeamWarnings<3 )
-  {
-	  level.lastTeamUnbalancedTime = level.time;
-	  if (level.numAlienSpawns > 0 && level.numHumanClients - level.numAlienClients > 2)
-	  {
-		  trap_SendServerCommand (-1, "print \"Teams are unbalanced. Humans have more players.\n Humans will keep their points when switching teams.\n\"");
-		  level.numTeamWarnings++;
-	  }
-	  else if (level.numHumanSpawns > 0 && level.numAlienClients - level.numHumanClients > 2)
-	  {
-		  trap_SendServerCommand (-1, "print \"Teams are unbalanced. Aliens have more players.\n Aliens will keep their points when switching teams.\n\"");
-		  level.numTeamWarnings++;
-	  }
-	  else
-	  {
-		  level.numTeamWarnings = 0;
-	  }
   }
 }

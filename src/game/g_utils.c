@@ -1,7 +1,7 @@
 /*
 ===========================================================================
 Copyright (C) 1999-2005 Id Software, Inc.
-Copyright (C) 2000-2006 Tim Angus
+Copyright (C) 2000-2009 Darklegion Development
 
 This file is part of Tremulous.
 
@@ -122,13 +122,11 @@ int G_FindConfigstringIndex( char *name, int start, int max, qboolean create )
   return i;
 }
 
-//TA: added ParticleSystemIndex
 int G_ParticleSystemIndex( char *name )
 {
   return G_FindConfigstringIndex( name, CS_PARTICLE_SYSTEMS, MAX_GAME_PARTICLE_SYSTEMS, qtrue );
 }
 
-//TA: added ShaderIndex
 int G_ShaderIndex( char *name )
 {
   return G_FindConfigstringIndex( name, CS_SHADERS, MAX_GAME_SHADERS, qtrue );
@@ -154,7 +152,7 @@ G_TeamCommand
 Broadcasts a command to only a specific team
 ================
 */
-void G_TeamCommand( pTeam_t team, char *cmd )
+void G_TeamCommand( team_t team, char *cmd )
 {
   int   i;
 
@@ -163,7 +161,7 @@ void G_TeamCommand( pTeam_t team, char *cmd )
     if( level.clients[ i ].pers.connected == CON_CONNECTED )
     {
       if( level.clients[ i ].pers.teamSelection == team ||
-        ( level.clients[ i ].pers.teamSelection == PTE_NONE &&
+        ( level.clients[ i ].pers.teamSelection == TEAM_NONE &&
           G_admin_permission( &g_entities[ i ], ADMF_SPEC_ALLCHAT ) ) )
         trap_SendServerCommand( i, cmd );
     }
@@ -593,7 +591,7 @@ void G_KillBox( gentity_t *ent )
     if( !hit->client )
       continue;
 
-    //TA: impossible to telefrag self
+    // impossible to telefrag self
     if( ent == hit )
       continue;
 
@@ -644,8 +642,8 @@ void G_AddEvent( gentity_t *ent, int event, int eventParm )
   // eventParm is converted to uint8_t (0 - 255) in msg.c 
   if( eventParm & ~0xFF )
   {
-    G_Printf( S_COLOR_YELLOW "WARNING: G_AddEvent: event %d "
-      " eventParm uint8_t overflow (given %d)\n", event, eventParm );
+    G_Printf( S_COLOR_YELLOW "WARNING: G_AddEvent( %s ) has eventParm %d, "
+              "which will overflow\n", BG_EventName( event ), eventParm );
   }
 
   // clients need to add the event in playerState_t instead of entityState_t
@@ -737,10 +735,10 @@ void G_SetOrigin( gentity_t *ent, vec3_t origin )
   VectorClear( ent->s.pos.trDelta );
 
   VectorCopy( origin, ent->r.currentOrigin );
-  VectorCopy( origin, ent->s.origin ); //TA: if shit breaks - blame this line
+  VectorCopy( origin, ent->s.origin );
 }
 
-//TA: from quakestyle.telefragged.com
+// from quakestyle.telefragged.com
 // (NOBODY): Code helper function
 //
 gentity_t *G_FindRadius( gentity_t *from, vec3_t org, float rad )
@@ -777,16 +775,14 @@ G_Visible
 Test for a LOS between two entities
 ===============
 */
-qboolean G_Visible( gentity_t *ent1, gentity_t *ent2 )
+qboolean G_Visible( gentity_t *ent1, gentity_t *ent2, int contents )
 {
   trace_t trace;
 
-  trap_Trace( &trace, ent1->s.pos.trBase, NULL, NULL, ent2->s.pos.trBase, ent1->s.number, MASK_SHOT );
+  trap_Trace( &trace, ent1->s.pos.trBase, NULL, NULL, ent2->s.pos.trBase,
+              ent1->s.number, contents );
 
-  if( trace.contents & CONTENTS_SOLID )
-    return qfalse;
-
-  return qtrue;
+  return trace.fraction >= 1.0f || trace.entityNum == ent2 - g_entities;
 }
 
 /*
@@ -828,10 +824,24 @@ void G_TriggerMenu( int clientNum, dynMenu_t menu )
 {
   char buffer[ 32 ];
 
-  Com_sprintf( buffer, 32, "servermenu %d", menu );
+  Com_sprintf( buffer, sizeof( buffer ), "servermenu %d", menu );
   trap_SendServerCommand( clientNum, buffer );
 }
 
+/*
+===============
+G_TriggerMenuArgs
+
+Trigger a menu on some client and passes an argument
+===============
+*/
+void G_TriggerMenuArgs( int clientNum, dynMenu_t menu, int arg )
+{
+  char buffer[ 64 ];
+
+  Com_sprintf( buffer, sizeof( buffer ), "servermenu %d %d", menu, arg );
+  trap_SendServerCommand( clientNum, buffer );
+}
 
 /*
 ===============
@@ -846,4 +856,198 @@ void G_CloseMenus( int clientNum )
 
   Com_sprintf( buffer, 32, "serverclosemenus" );
   trap_SendServerCommand( clientNum, buffer );
+}
+
+
+/*
+===============
+G_AddressParse
+
+Make an IP address more usable
+===============
+*/
+static const char *addr4parse( const char *str, addr_t *addr )
+{
+  int i;
+  int octet = 0;
+  int num = 0;
+  memset( addr, 0, sizeof( addr_t ) );
+  addr->type = IPv4;
+  for( i = 0; octet < 4; i++ )
+  {
+    if( isdigit( str[ i ] ) )
+      num = num * 10 + str[ i ] - '0';
+    else
+    {
+      if( num < 0 || num > 255 )
+        return NULL;
+      addr->addr[ octet ] = (byte)num;
+      octet++;
+      if( str[ i ] != '.' || str[ i + 1 ] == '.' )
+        break;
+      num = 0;
+    }
+  }
+  if( octet < 1 )
+    return NULL;
+  return str + i;
+}
+
+static const char *addr6parse( const char *str, addr_t *addr )
+{
+  int i;
+  qboolean seen = qfalse;
+  /* keep track of the parts before and after the ::
+     it's either this or even uglier hacks */
+  byte a[ ADDRLEN ], b[ ADDRLEN ];
+  size_t before = 0, after = 0;
+  int num = 0;
+  /* 8 hexadectets unless :: is present */
+  for( i = 0; before + after <= 8; i++ )
+  {
+    //num = num << 4 | str[ i ] - '0';
+    if( isdigit( str[ i ] ) )
+      num = num * 16 + str[ i ] - '0';
+    else if( str[ i ] >= 'A' && str[ i ] <= 'F' )
+      num = num * 16 + 10 + str[ i ] - 'A';
+    else if( str[ i ] >= 'a' && str[ i ] <= 'f' )
+      num = num * 16 + 10 + str[ i ] - 'a';
+    else
+    {
+      if( num < 0 || num > 65535 )
+        return NULL;
+      if( i == 0 )
+      {
+        // 
+      }
+      else if( seen ) // :: has been seen already
+      {
+        b[ after * 2 ] = num >> 8;
+        b[ after * 2 + 1 ] = num & 0xff;
+        after++;
+      }
+      else
+      {
+        a[ before * 2 ] = num >> 8;
+        a[ before * 2 + 1 ] = num & 0xff;
+        before++;
+      }
+      if( !str[ i ] )
+        break;
+      if( str[ i ] != ':' || i == 8 )
+        break;
+      if( str[ i + 1 ] == ':' )
+      {
+        // ::: or multiple ::
+        if( seen || str[ i + 2 ] == ':' )
+          break;
+        seen = qtrue;
+        i++;
+      }
+      else if( i == 0 ) // starts with : but not ::
+        return NULL;
+      num = 0;
+    }
+  }
+  if( seen )
+  {
+    // there have to be fewer than 8 hexadectets when :: is present
+    if( before + after == 8 )
+      return NULL;
+  }
+  else if( before + after < 8 ) // require exactly 8 hexadectets
+    return NULL;
+  memset( addr, 0, sizeof( addr_t ) );
+  addr->type = IPv6;
+  if( before )
+    memcpy( addr->addr, a, before * 2 );
+  if( after )
+    memcpy( addr->addr + ADDRLEN - 2 * after, b, after * 2 );
+  return str + i;
+}
+
+qboolean G_AddressParse( const char *str, addr_t *addr, int *netmask )
+{
+  const char *p;
+  int max;
+  if( strchr( str, ':' ) )
+  {
+    p = addr6parse( str, addr );
+    max = 128;
+  }
+  else
+  {
+    p = addr4parse( str, addr );
+    max = 32;
+  }
+  if( !p )
+    return qfalse;
+  if( *p == '/' )
+  {
+    if( netmask )
+    {
+      *netmask = atoi( p + 1 );
+      if( *netmask < 1 || *netmask > max )
+        *netmask = max;
+    }
+  }
+  else
+  {
+    if( *p )
+      return qfalse;
+    if( netmask )
+      *netmask = max;
+  }
+  return qtrue;
+}
+
+/*
+===============
+G_AddressCompare
+
+Based largely on NET_CompareBaseAdrMask from ioq3 revision 1557
+===============
+*/
+qboolean G_AddressCompare( const addr_t *a, const addr_t *b, int netmask )
+{
+  int i;
+  if( a->type != b->type )
+    return qfalse;
+  if( a->type == IPv4 )
+  {
+    if( netmask < 1 || netmask > 32 )
+      netmask = 32;
+  }
+  else if( a->type == IPv6 )
+  {
+    if( netmask < 1 || netmask > 128 )
+      netmask = 128;
+  }
+  for( i = 0; netmask > 7; i++, netmask -= 8 )
+    if( a->addr[ i ] != b->addr[ i ] )
+      return qfalse;
+  if( netmask )
+  {
+    netmask = ( ( 1 << netmask ) - 1 ) << ( 8 - netmask );
+    return ( a->addr[ i ] & netmask ) == ( b->addr[ i ] & netmask );
+  }
+  return qtrue;
+}
+
+/*
+===============
+G_AdrCmpStr
+
+The first argument may be in CIDR notation
+===============
+*/
+qboolean G_AdrCmpStr( const char *a, const char *b )
+{
+  int netmask = -1;
+  addr_t cmpa, cmpb;
+  if( !G_AddressParse( a, &cmpa, &netmask ) )
+    return qfalse;
+  if( !G_AddressParse( b, &cmpb, NULL ) )
+    return qfalse;
+  return G_AddressCompare( &cmpa, &cmpb, netmask );
 }

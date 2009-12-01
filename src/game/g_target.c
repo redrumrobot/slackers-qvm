@@ -1,7 +1,7 @@
 /*
 ===========================================================================
 Copyright (C) 1999-2005 Id Software, Inc.
-Copyright (C) 2000-2006 Tim Angus
+Copyright (C) 2000-2009 Darklegion Development
 
 This file is part of Tremulous.
 
@@ -95,9 +95,9 @@ void Use_Target_Print( gentity_t *ent, gentity_t *other, gentity_t *activator )
   if( ent->spawnflags & 3 )
   {
     if( ent->spawnflags & 1 )
-      G_TeamCommand( PTE_HUMANS, va( "cp \"%s\"", ent->message ) );
+      G_TeamCommand( TEAM_HUMANS, va( "cp \"%s\"", ent->message ) );
     if( ent->spawnflags & 2 )
-      G_TeamCommand( PTE_ALIENS, va( "cp \"%s\"", ent->message ) );
+      G_TeamCommand( TEAM_ALIENS, va( "cp \"%s\"", ent->message ) );
 
     return;
   }
@@ -235,11 +235,11 @@ if RANDOM is checked, only one of the targets will be fired, not all of them
 void target_relay_use( gentity_t *self, gentity_t *other, gentity_t *activator )
 {
   if( ( self->spawnflags & 1 ) && activator && activator->client &&
-      activator->client->ps.stats[ STAT_PTEAM ] != PTE_HUMANS )
+      activator->client->ps.stats[ STAT_TEAM ] != TEAM_HUMANS )
     return;
 
   if( ( self->spawnflags & 2 ) && activator && activator->client &&
-      activator->client->ps.stats[ STAT_PTEAM ] != PTE_ALIENS )
+      activator->client->ps.stats[ STAT_TEAM ] != TEAM_ALIENS )
     return;
 
   if( self->spawnflags & 4 )
@@ -288,35 +288,6 @@ void SP_target_position( gentity_t *self )
   G_SetOrigin( self, self->s.origin );
 }
 
-static void target_location_linkup( gentity_t *ent )
-{
-  int i;
-  int n;
-
-  if( level.locationLinked )
-    return;
-
-  level.locationLinked = qtrue;
-
-  level.locationHead = NULL;
-
-  trap_SetConfigstring( CS_LOCATIONS, "unknown" );
-
-  for( i = 0, ent = g_entities, n = 1; i < level.num_entities; i++, ent++)
-  {
-    if( ent->classname && !Q_stricmp( ent->classname, "target_location" ) )
-    {
-      // lets overload some variables!
-      ent->health = n; // use for location marking
-      trap_SetConfigstring( CS_LOCATIONS + n, ent->message );
-      n++;
-      ent->nextTrain = level.locationHead;
-      level.locationHead = ent;
-    }
-  }
-  // All linked together now
-}
-
 /*QUAKED target_location (0 0.5 0) (-8 -8 -8) (8 8 8)
 Set "message" to the name of this location.
 Set "count" to 0-7 for color.
@@ -327,8 +298,31 @@ in site, closest in distance
 */
 void SP_target_location( gentity_t *self )
 {
-  self->think = target_location_linkup;
-  self->nextthink = level.time + 200;  // Let them all spawn first
+  static int n = 1;
+  char *message;
+  self->s.eType = ET_LOCATION;
+  self->r.svFlags = SVF_BROADCAST;
+  trap_LinkEntity( self ); // make the server send them to the clients
+  if( !level.locationHead )
+    trap_SetConfigstring( CS_LOCATIONS, "unknown" );
+  if( self->count )
+  {
+    if( self->count < 0 )
+      self->count = 0;
+
+    if( self->count > 7 )
+      self->count = 7;
+
+    message = va( "%c%c%s" S_COLOR_WHITE, Q_COLOR_ESCAPE, self->count + '0',
+      self->message);
+  }
+  else
+    message = self->message;
+  trap_SetConfigstring( CS_LOCATIONS + n, message );
+  self->nextTrain = level.locationHead;
+  self->s.generic1 = n; // use for location marking
+  level.locationHead = self;
+  n++;
 
   G_SetOrigin( self, self->s.origin );
 }

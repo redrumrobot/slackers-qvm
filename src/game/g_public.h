@@ -1,7 +1,7 @@
 /*
 ===========================================================================
 Copyright (C) 1999-2005 Id Software, Inc.
-Copyright (C) 2000-2006 Tim Angus
+Copyright (C) 2000-2009 Darklegion Development
 
 This file is part of Tremulous.
 
@@ -23,7 +23,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 // g_public.h -- game module information visible to server
 
-#define GAME_API_VERSION  8
+#define GAME_API_VERSION  9
 
 // entity->svFlags
 // the server does not know how to interpret most of the values
@@ -31,8 +31,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 // special server behaviors
 #define SVF_NOCLIENT            0x00000001  // don't send entity to clients, even if it has effects
 
-// TTimo
-// https://zerowing.idsoftware.com/bugzilla/show_bug.cgi?id=551
 #define SVF_CLIENTMASK 0x00000002
 
 #define SVF_BROADCAST           0x00000020  // send to all connected clients
@@ -157,6 +155,8 @@ typedef enum {
 
   G_GET_CONFIGSTRING, // ( int num, char *buffer, int bufferSize );
 
+  G_SET_CONFIGSTRING_RESTRICTIONS, // ( int num, const clientList* clientList );
+
   G_GET_USERINFO,   // ( int num, char *buffer, int bufferSize );
   // userinfo strings are maintained by the server system, so they
   // are persistant across level loads, while all other game visible
@@ -222,7 +222,10 @@ typedef enum {
   G_PARSE_READ_TOKEN,
   G_PARSE_SOURCE_FILE_AND_LINE,
 
-  G_SEND_GAMESTAT
+  G_SEND_GAMESTAT,
+
+  G_ADDCOMMAND,
+  G_REMOVECOMMAND
 } gameImport_t;
 
 

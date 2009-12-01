@@ -1,7 +1,7 @@
 /*
 ===========================================================================
 Copyright (C) 1999-2005 Id Software, Inc.
-Copyright (C) 2000-2006 Tim Angus
+Copyright (C) 2000-2009 Darklegion Development
 
 This file is part of Tremulous.
 
@@ -53,6 +53,28 @@ char *COM_SkipPath (char *pathname)
 	}
 	return last;
 }
+
+/*
+============
+COM_GetExtension
+============
+*/
+const char *COM_GetExtension( const char *name ) {
+	int length, i;
+
+	length = strlen(name)-1;
+	i = length;
+
+	while (name[i] != '.')
+	{
+		i--;
+		if (name[i] == '/' || i == 0)
+			return ""; // no extension
+	}
+
+	return &name[i+1];
+}
+
 
 /*
 ============
@@ -184,16 +206,11 @@ qint64 Long64NoSwap (qint64 ll)
 	return ll;
 }
 
-typedef union {
-    float	f;
-    unsigned int i;
-} _FloatByteUnion;
-
 float FloatSwap (const float *f) {
-	_FloatByteUnion out;
+	floatint_t out;
 
 	out.f = *f;
-	out.i = LongSwap(out.i);
+	out.ui = LongSwap(out.ui);
 
 	return out.f;
 }
@@ -274,7 +291,7 @@ void COM_ParseError( char *format, ... )
 	static char string[4096];
 
 	va_start (argptr, format);
-	vsprintf (string, format, argptr);
+	Q_vsnprintf (string, sizeof(string), format, argptr);
 	va_end (argptr);
 
 	Com_Printf("ERROR: %s, line %d: %s\n", com_parsename, com_lines, string);
@@ -286,7 +303,7 @@ void COM_ParseWarning( char *format, ... )
 	static char string[4096];
 
 	va_start (argptr, format);
-	vsprintf (string, format, argptr);
+	Q_vsnprintf (string, sizeof(string), format, argptr);
 	va_end (argptr);
 
 	Com_Printf("WARNING: %s, line %d: %s\n", com_parsename, com_lines, string);
@@ -340,48 +357,48 @@ int COM_Compress( char *data_p ) {
 					in++;
 				if ( *in ) 
 					in += 2;
-                        // record when we hit a newline
-                        } else if ( c == '\n' || c == '\r' ) {
-                            newline = qtrue;
-                            in++;
-                        // record when we hit whitespace
-                        } else if ( c == ' ' || c == '\t') {
-                            whitespace = qtrue;
-                            in++;
-                        // an actual token
+				// record when we hit a newline
+			} else if ( c == '\n' || c == '\r' ) {
+				newline = qtrue;
+				in++;
+				// record when we hit whitespace
+			} else if ( c == ' ' || c == '\t') {
+				whitespace = qtrue;
+				in++;
+				// an actual token
 			} else {
-                            // if we have a pending newline, emit it (and it counts as whitespace)
-                            if (newline) {
-                                *out++ = '\n';
-                                newline = qfalse;
-                                whitespace = qfalse;
-                            } if (whitespace) {
-                                *out++ = ' ';
-                                whitespace = qfalse;
-                            }
-                            
-                            // copy quoted strings unmolested
-                            if (c == '"') {
-                                    *out++ = c;
-                                    in++;
-                                    while (1) {
-                                        c = *in;
-                                        if (c && c != '"') {
-                                            *out++ = c;
-                                            in++;
-                                        } else {
-                                            break;
-                                        }
-                                    }
-                                    if (c == '"') {
-                                        *out++ = c;
-                                        in++;
-                                    }
-                            } else {
-                                *out = c;
-                                out++;
-                                in++;
-                            }
+				// if we have a pending newline, emit it (and it counts as whitespace)
+				if (newline) {
+					*out++ = '\n';
+					newline = qfalse;
+					whitespace = qfalse;
+				} if (whitespace) {
+					*out++ = ' ';
+					whitespace = qfalse;
+				}
+
+				// copy quoted strings unmolested
+				if (c == '"') {
+					*out++ = c;
+					in++;
+					while (1) {
+						c = *in;
+						if (c && c != '"') {
+							*out++ = c;
+							in++;
+						} else {
+							break;
+						}
+					}
+					if (c == '"') {
+						*out++ = c;
+						in++;
+					}
+				} else {
+					*out = c;
+					out++;
+					in++;
+				}
 			}
 		}
 	}
@@ -491,62 +508,6 @@ char *COM_ParseExt( char **data_p, qboolean allowLineBreaks )
 	return com_token;
 }
 
-
-#if 0
-// no longer used
-/*
-===============
-COM_ParseInfos
-===============
-*/
-int COM_ParseInfos( char *buf, int max, char infos[][MAX_INFO_STRING] ) {
-	char	*token;
-	int		count;
-	char	key[MAX_TOKEN_CHARS];
-
-	count = 0;
-
-	while ( 1 ) {
-		token = COM_Parse( &buf );
-		if ( !token[0] ) {
-			break;
-		}
-		if ( strcmp( token, "{" ) ) {
-			Com_Printf( "Missing { in info file\n" );
-			break;
-		}
-
-		if ( count == max ) {
-			Com_Printf( "Max infos exceeded\n" );
-			break;
-		}
-
-		infos[count][0] = 0;
-		while ( 1 ) {
-			token = COM_ParseExt( &buf, qtrue );
-			if ( !token[0] ) {
-				Com_Printf( "Unexpected end of info file\n" );
-				break;
-			}
-			if ( !strcmp( token, "}" ) ) {
-				break;
-			}
-			Q_strncpyz( key, token, sizeof( key ) );
-
-			token = COM_ParseExt( &buf, qfalse );
-			if ( !token[0] ) {
-				strcpy( token, "<NULL>" );
-			}
-			Info_SetValueForKey( infos[count], key, token );
-		}
-		count++;
-	}
-
-	return count;
-}
-#endif
-
-
 /*
 ==================
 COM_MatchToken
@@ -648,6 +609,44 @@ void Parse3DMatrix (char **buf_p, int z, int y, int x, float *m) {
 	COM_MatchToken( buf_p, ")" );
 }
 
+/*
+===================
+Com_HexStrToInt
+===================
+*/
+int Com_HexStrToInt( const char *str )
+{
+	if ( !str || !str[ 0 ] )
+		return -1;
+
+	// check for hex code
+	if( str[ 0 ] == '0' && str[ 1 ] == 'x' )
+	{
+		int i, n = 0;
+
+		for( i = 2; i < strlen( str ); i++ )
+		{
+			char digit;
+
+			n *= 16;
+
+			digit = tolower( str[ i ] );
+
+			if( digit >= '0' && digit <= '9' )
+				digit -= '0';
+			else if( digit >= 'a' && digit <= 'f' )
+				digit = digit - 'a' + 10;
+			else
+				return -1;
+
+			n += digit;
+		}
+
+		return n;
+	}
+
+	return -1;
+}
 
 /*
 ============================================================================
@@ -685,13 +684,6 @@ int Q_isalpha( int c )
 	return ( 0 );
 }
 
-int Q_isdigit( int c )
-{
-	if ((c >= '0' && c <= '9'))
-		return ( 1 );
-	return ( 0 );
-}
-
 char* Q_strrchr( const char* string, int c )
 {
 	char cc = c;
@@ -712,6 +704,29 @@ char* Q_strrchr( const char* string, int c )
 	return sp;
 }
 
+qboolean Q_isanumber( const char *s )
+{
+#ifdef Q3_VM
+	//FIXME: implement
+	return qfalse;
+#else
+	char *p;
+	double d;
+
+	if( *s == '\0' )
+		return qfalse;
+
+	d = strtod( s, &p );
+
+	return *p == '\0';
+#endif
+}
+
+qboolean Q_isintegral( float f )
+{
+	return (int)f == f;
+}
+
 /*
 =============
 Q_strncpyz
@@ -720,7 +735,6 @@ Safe strncpy that ensures a trailing zero
 =============
 */
 void Q_strncpyz( char *dest, const char *src, int destsize ) {
-  // bk001129 - also NULL dest
   if ( !dest ) {
     Com_Error( ERR_FATAL, "Q_strncpyz: NULL dest" );
   }
@@ -738,7 +752,6 @@ void Q_strncpyz( char *dest, const char *src, int destsize ) {
 int Q_stricmpn (const char *s1, const char *s2, int n) {
 	int		c1, c2;
 
-	// bk001129 - moved in 1.17 fix not in id codebase
         if ( s1 == NULL ) {
            if ( s2 == NULL )
              return 0;
@@ -832,6 +845,38 @@ void Q_strcat( char *dest, int size, const char *src ) {
 	Q_strncpyz( dest + l1, src, size - l1 );
 }
 
+/*
+* Find the first occurrence of find in s.
+*/
+const char *Q_stristr( const char *s, const char *find)
+{
+  char c, sc;
+  size_t len;
+
+  if ((c = *find++) != 0)
+  {
+    if (c >= 'a' && c <= 'z')
+    {
+      c -= ('a' - 'A');
+    }
+    len = strlen(find);
+    do
+    {
+      do
+      {
+        if ((sc = *s++) == 0)
+          return NULL;
+        if (sc >= 'a' && sc <= 'z')
+        {
+          sc -= ('a' - 'A');
+        }
+      } while (sc != c);
+    } while (Q_stricmpn(s, find, len) != 0);
+    s--;
+  }
+  return s;
+}
+
 
 int Q_PrintStrlen( const char *string ) {
 	int			len;
@@ -877,6 +922,40 @@ char *Q_CleanStr( char *string ) {
 	return string;
 }
 
+int Q_CountChar(const char *string, char tocount)
+{
+	int count;
+	
+	for(count = 0; *string; string++)
+	{
+		if(*string == tocount)
+			count++;
+	}
+	
+	return count;
+}
+
+void Q_StripIndentMarker(char *string)
+{
+	int i;
+
+	for (i = 0; i < strlen(string); i++) {
+		if (string[i] == INDENT_MARKER) {
+			int j;
+
+			for (j = i; j < strlen(string); j++) {
+				string[j] = string[j+1];
+			}
+		}
+	}
+}
+
+void Q_ParseNewlines( char *dest, const char *src, int destsize )
+{
+  for( ; *src && destsize > 1; src++, destsize-- )
+    *dest++ = ( ( *src == '\\' && *( ++src ) == 'n' ) ? '\n' : *src );
+  *dest++ = '\0';
+}
 
 void QDECL Com_sprintf( char *dest, int size, const char *fmt, ...) {
 	int		len;
@@ -884,7 +963,7 @@ void QDECL Com_sprintf( char *dest, int size, const char *fmt, ...) {
 	char	bigbuffer[32000];	// big, but small enough to fit in PPC stack
 
 	va_start (argptr,fmt);
-	len = vsprintf (bigbuffer,fmt,argptr);
+	len = Q_vsnprintf (bigbuffer, sizeof(bigbuffer), fmt,argptr);
 	va_end (argptr);
 	if ( len >= sizeof( bigbuffer ) ) {
 		Com_Error( ERR_FATAL, "Com_sprintf: overflowed bigbuffer" );
@@ -907,20 +986,19 @@ va
 
 does a varargs printf into a temp buffer, so I don't need to have
 varargs versions of all text functions.
-FIXME: make this buffer size safe someday
 ============
 */
 char	* QDECL va( char *format, ... ) {
 	va_list		argptr;
-	static char		string[2][32000];	// in case va is called by nested functions
-	static int		index = 0;
-	char	*buf;
+	static char string[2][32000]; // in case va is called by nested functions
+	static int	index = 0;
+	char		*buf;
 
 	buf = string[index & 1];
 	index++;
 
 	va_start (argptr, format);
-	vsprintf (buf, format,argptr);
+	Q_vsnprintf (buf, sizeof(*string), format, argptr);
 	va_end (argptr);
 
 	return buf;
@@ -1100,7 +1178,8 @@ void Info_RemoveKey( char *s, const char *key ) {
 
 		if (!strcmp (key, pkey) )
 		{
-			strcpy (start, s);	// remove this part
+			memmove(start, s, strlen(s) + 1); // remove this part
+			
 			return;
 		}
 
@@ -1268,7 +1347,8 @@ void Info_SetValueForKey_Big( char *s, const char *key, const char *value ) {
 
 	if (strlen(newi) + strlen(s) >= BIG_INFO_STRING)
 	{
-		Com_Printf ("BIG Info string length exceeded\n");
+		Com_Printf ("BIG Info string length exceeded: setting %s to %s "
+			"failed\n", key, value);
 		return;
 	}
 
@@ -1344,4 +1424,83 @@ char *Com_SkipTokens( char *s, int numTokens, char *sep )
 		return p;
 	else
 		return s;
+}
+
+/*
+============
+Com_ClientListContains
+============
+*/
+qboolean Com_ClientListContains( const clientList_t *list, int clientNum )
+{
+  if( clientNum < 0 || clientNum >= MAX_CLIENTS || !list )
+    return qfalse;
+  if( clientNum < 32 )
+    return ( ( list->lo & ( 1 << clientNum ) ) != 0 );
+  else
+    return ( ( list->hi & ( 1 << ( clientNum - 32 ) ) ) != 0 );
+}
+
+/*
+============
+Com_ClientListAdd
+============
+*/
+void Com_ClientListAdd( clientList_t *list, int clientNum )
+{
+  if( clientNum < 0 || clientNum >= MAX_CLIENTS || !list )
+    return;
+  if( clientNum < 32 )
+    list->lo |= ( 1 << clientNum );
+  else
+    list->hi |= ( 1 << ( clientNum - 32 ) );
+}
+
+/*
+============
+Com_ClientListRemove
+============
+*/
+void Com_ClientListRemove( clientList_t *list, int clientNum )
+{
+  if( clientNum < 0 || clientNum >= MAX_CLIENTS || !list )
+    return;
+  if( clientNum < 32 )
+    list->lo &= ~( 1 << clientNum );
+  else
+    list->hi &= ~( 1 << ( clientNum - 32 ) );
+}
+
+/*
+============
+Com_ClientListString
+============
+*/
+char *Com_ClientListString( const clientList_t *list )
+{
+  static char s[ 17 ];
+
+  s[ 0 ] = '\0';
+  if( !list )
+    return s;
+  Com_sprintf( s, sizeof( s ), "%08x%08x", list->hi, list->lo );
+  return s;
+}
+
+/*
+============
+Com_ClientListParse
+============
+*/
+void Com_ClientListParse( clientList_t *list, const char *s )
+{
+  if( !list )
+    return;
+  list->lo = 0;
+  list->hi = 0;
+  if( !s )
+    return;
+  if( strlen( s ) != 16 )
+    return;
+  sscanf( s, "%x%x", &list->hi, &list->lo );
 }

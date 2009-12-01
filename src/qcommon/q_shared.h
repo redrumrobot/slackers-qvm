@@ -1,7 +1,7 @@
 /*
 ===========================================================================
 Copyright (C) 1999-2005 Id Software, Inc.
-Copyright (C) 2000-2006 Tim Angus
+Copyright (C) 2000-2009 Darklegion Development
 
 This file is part of Tremulous.
 
@@ -27,15 +27,17 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 // q_shared.h -- included first by ALL program modules.
 // A user mod should never modify this file
 
-#define VERSION_NUMBER        "1.1.0"
-#define Q3_VERSION            "tremulous " VERSION_NUMBER
-#ifndef SVN_VERSION
-#define SVN_VERSION           Q3_VERSION
+#define PRODUCT_NAME              "tremulous"
+
+#ifdef _MSC_VER
+# define PRODUCT_VERSION          "1.1.0"
 #endif
-#define CLIENT_WINDOW_TITLE   "Tremulous " VERSION_NUMBER
-#define CLIENT_WINDOW_ICON    "Tremulous"
-#define CONSOLE_WINDOW_TITLE  "Tremulous " VERSION_NUMBER " console"
-#define CONSOLE_WINDOW_ICON   "Tremulous console"
+
+#define CLIENT_WINDOW_TITLE       "Tremulous " PRODUCT_VERSION
+#define CLIENT_WINDOW_MIN_TITLE   "Tremulous"
+#define Q3_VERSION                 PRODUCT_NAME " " PRODUCT_VERSION
+
+#define GAMENAME_FOR_MASTER       "Tremulous"
 
 #define MAX_TEAMNAME 32
 
@@ -72,6 +74,16 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #endif
 #endif
 
+#if (defined _MSC_VER)
+#define Q_EXPORT __declspec(dllexport)
+#elif (defined __SUNPRO_C)
+#define Q_EXPORT __global
+#elif ((__GNUC__ >= 3) && (!__EMX__) && (!sun))
+#define Q_EXPORT __attribute__((visibility("default")))
+#else
+#define Q_EXPORT
+#endif
+
 /**********************************************************************
   VM Considerations
 
@@ -92,6 +104,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #include "../game/bg_lib.h"
 
+typedef int intptr_t;
+
 #else
 
 #include <assert.h>
@@ -104,33 +118,47 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include <ctype.h>
 #include <limits.h>
 
+// vsnprintf is ISO/IEC 9899:1999
+// abstracting this to make it portable
+#ifdef _WIN32
+  #define Q_vsnprintf _vsnprintf
+  #define Q_snprintf _snprintf
+#else
+  #define Q_vsnprintf vsnprintf
+  #define Q_snprintf snprintf
 #endif
+
+#ifdef _MSC_VER
+  #include <io.h>
+
+  typedef __int64 int64_t;
+  typedef __int32 int32_t;
+  typedef __int16 int16_t;
+  typedef __int8 int8_t;
+  typedef unsigned __int64 uint64_t;
+  typedef unsigned __int32 uint32_t;
+  typedef unsigned __int16 uint16_t;
+  typedef unsigned __int8 uint8_t;
+#else
+  #include <stdint.h>
+#endif
+
+#endif
+
 
 #include "q_platform.h"
 
 //=============================================================
 
-#ifdef Q3_VM
-   typedef int intptr_t;
-#else
-  #ifndef _MSC_VER
-    #include <stdint.h>
-  #else
-    #include <io.h>
-    typedef __int64 int64_t;
-    typedef __int32 int32_t;
-    typedef __int16 int16_t;
-    typedef __int8 int8_t;
-    typedef unsigned __int64 uint64_t;
-    typedef unsigned __int32 uint32_t;
-    typedef unsigned __int16 uint16_t;
-    typedef unsigned __int8 uint8_t;
-  #endif
-#endif
-
 typedef unsigned char 		byte;
 
 typedef enum {qfalse, qtrue}	qboolean;
+
+typedef union {
+	float f;
+	int i;
+	unsigned int ui;
+} floatint_t;
 
 typedef int		qhandle_t;
 typedef int		sfxHandle_t;
@@ -148,6 +176,10 @@ typedef int		clipHandle_t;
 #ifndef NULL
 #define NULL ((void *)0)
 #endif
+
+#define STRING(s)			#s
+// expand constants before stringifying them
+#define XSTRING(s)			STRING(s)
 
 #define	MAX_QINT			0x7fffffff
 #define	MIN_QINT			(-MAX_QINT-1)
@@ -172,6 +204,7 @@ typedef int		clipHandle_t;
 #define	BIG_INFO_KEY		  8192
 #define	BIG_INFO_VALUE		8192
 
+#define	MAX_NEWS_STRING		10000
 
 #define	MAX_QPATH			64		// max length of a quake game pathname
 #ifdef PATH_MAX
@@ -262,14 +295,6 @@ void *Hunk_AllocDebug( int size, ha_pref preference, char *label, char *file, in
 void *Hunk_Alloc( int size, ha_pref preference );
 #endif
 
-#if defined(__GNUC__) && !defined(__MINGW32__) && !defined(MACOS_X)
-// https://zerowing.idsoftware.com/bugzilla/show_bug.cgi?id=371
-// custom Snd_Memset implementation for glibc memset bug workaround
-void Snd_Memset (void* dest, const int val, const size_t count);
-#else
-#define Snd_Memset Com_Memset
-#endif
-
 #define Com_Memset memset
 #define Com_Memcpy memcpy
 
@@ -343,26 +368,29 @@ extern	vec4_t		colorMdGrey;
 extern	vec4_t		colorDkGrey;
 
 #define Q_COLOR_ESCAPE	'^'
-#define Q_IsColorString(p)	( p && *(p) == Q_COLOR_ESCAPE && *((p)+1) && *((p)+1) != Q_COLOR_ESCAPE )
+#define Q_IsColorString(p)	((p) && *(p) == Q_COLOR_ESCAPE && *((p)+1) && isalnum(*((p)+1))) // ^[0-9a-zA-Z]
 
-#define COLOR_BLACK		'0'
-#define COLOR_RED		'1'
-#define COLOR_GREEN		'2'
+#define COLOR_BLACK	'0'
+#define COLOR_RED	'1'
+#define COLOR_GREEN	'2'
 #define COLOR_YELLOW	'3'
-#define COLOR_BLUE		'4'
-#define COLOR_CYAN		'5'
+#define COLOR_BLUE	'4'
+#define COLOR_CYAN	'5'
 #define COLOR_MAGENTA	'6'
-#define COLOR_WHITE		'7'
-#define ColorIndex(c)	( ( (c) - '0' ) & 7 )
+#define COLOR_WHITE	'7'
+#define ColorIndex(c)	(((c) - '0') & 0x07)
 
 #define S_COLOR_BLACK	"^0"
-#define S_COLOR_RED		"^1"
+#define S_COLOR_RED	"^1"
 #define S_COLOR_GREEN	"^2"
 #define S_COLOR_YELLOW	"^3"
 #define S_COLOR_BLUE	"^4"
 #define S_COLOR_CYAN	"^5"
 #define S_COLOR_MAGENTA	"^6"
 #define S_COLOR_WHITE	"^7"
+
+#define INDENT_MARKER '\v'
+void Q_StripIndentMarker(char *string);
 
 extern vec4_t	g_color_table[8];
 
@@ -459,8 +487,15 @@ typedef struct {
 #define VectorSet(v, x, y, z)	((v)[0]=(x), (v)[1]=(y), (v)[2]=(z))
 #define Vector4Copy(a,b)		((b)[0]=(a)[0],(b)[1]=(a)[1],(b)[2]=(a)[2],(b)[3]=(a)[3])
 #define Vector4Add(a,b,c)    ((c)[0]=(a)[0]+(b)[0],(c)[1]=(a)[1]+(b)[1],(c)[2]=(a)[2]+(b)[2],(c)[3]=(a)[3]+(b)[3])
+#define Vector4Lerp( f, s, e, r ) ((r)[0]=(s)[0]+(f)*((e)[0]-(s)[0]),\
+  (r)[1]=(s)[1]+(f)*((e)[1]-(s)[1]),\
+  (r)[2]=(s)[2]+(f)*((e)[2]-(s)[2]),\
+  (r)[3]=(s)[3]+(f)*((e)[3]-(s)[3]))
 
-#define	SnapVector(v) {v[0]=((int)(v[0]));v[1]=((int)(v[1]));v[2]=((int)(v[2]));}
+#define SnapVector(v) ( (v)[0] = (int)(v)[0],\
+                        (v)[1] = (int)(v)[1],\
+                        (v)[2] = (int)(v)[2] )
+
 // just in case you do't want to use the macros
 vec_t _DotProduct( const vec3_t v1, const vec3_t v2 );
 void _VectorSubtract( const vec3_t veca, const vec3_t vecb, vec3_t out );
@@ -559,7 +594,7 @@ vec_t VectorLengthSquared( const vec3_t v );
 vec_t Distance( const vec3_t p1, const vec3_t p2 );
 
 vec_t DistanceSquared( const vec3_t p1, const vec3_t p2 );
- 
+
 void VectorNormalizeFast( vec3_t v );
 
 void VectorInverse( vec3_t v );
@@ -592,6 +627,13 @@ void AxisCopy( vec3_t in[3], vec3_t out[3] );
 
 void SetPlaneSignbits( struct cplane_s *out );
 int BoxOnPlaneSide (vec3_t emins, vec3_t emaxs, struct cplane_s *plane);
+
+qboolean BoundsIntersect(const vec3_t mins, const vec3_t maxs,
+		const vec3_t mins2, const vec3_t maxs2);
+qboolean BoundsIntersectSphere(const vec3_t mins, const vec3_t maxs,
+		const vec3_t origin, vec_t radius);
+qboolean BoundsIntersectPoint(const vec3_t mins, const vec3_t maxs,
+		const vec3_t origin);
 
 float	AngleMod(float a);
 float	LerpAngle (float from, float to, float frac);
@@ -649,6 +691,7 @@ vec_t DistanceBetweenLineSegments(
 float Com_Clamp( float min, float max, float value );
 
 char	*COM_SkipPath( char *pathname );
+const char	*COM_GetExtension( const char *name );
 void	COM_StripExtension(const char *in, char *out, int destsize);
 void	COM_DefaultExtension( char *path, int maxSize, const char *extension );
 
@@ -691,6 +734,7 @@ void SkipRestOfLine ( char **data );
 void Parse1DMatrix (char **buf_p, int x, float *m);
 void Parse2DMatrix (char **buf_p, int y, int x, float *m);
 void Parse3DMatrix (char **buf_p, int z, int y, int x, float *m);
+int Com_HexStrToInt( const char *str );
 
 void	QDECL Com_sprintf (char *dest, int size, const char *fmt, ...) __attribute__ ((format (printf, 3, 4)));
 
@@ -698,6 +742,18 @@ char *Com_SkipTokens( char *s, int numTokens, char *sep );
 char *Com_SkipCharset( char *s, char *sep );
 
 void Com_RandomBytes( byte *string, int len );
+
+typedef struct 
+{
+  unsigned int hi;
+  unsigned int lo;
+} clientList_t;
+
+qboolean Com_ClientListContains( const clientList_t *list, int clientNum );
+void Com_ClientListAdd( clientList_t *list, int clientNum );
+void Com_ClientListRemove( clientList_t *list, int clientNum );
+char *Com_ClientListString( const clientList_t *list );
+void Com_ClientListParse( clientList_t *list, const char *s );
 
 // mode parm for FS_FOpenFile
 typedef enum {
@@ -719,7 +775,8 @@ int Q_isprint( int c );
 int Q_islower( int c );
 int Q_isupper( int c );
 int Q_isalpha( int c );
-int Q_isdigit( int c );
+qboolean Q_isanumber( const char *s );
+qboolean Q_isintegral( float f );
 
 // portable case insensitive compare
 int		Q_stricmp (const char *s1, const char *s2);
@@ -728,6 +785,7 @@ int		Q_stricmpn (const char *s1, const char *s2, int n);
 char	*Q_strlwr( char *s1 );
 char	*Q_strupr( char *s1 );
 char	*Q_strrchr( const char* string, int c );
+const char	*Q_stristr( const char *s, const char *find);
 
 // buffer size safe library replacements
 void	Q_strncpyz( char *dest, const char *src, int destsize );
@@ -737,6 +795,10 @@ void	Q_strcat( char *dest, int size, const char *src );
 int Q_PrintStrlen( const char *string );
 // removes color sequences from string
 char *Q_CleanStr( char *string );
+// parse "\n" into '\n'
+void Q_ParseNewlines( char *dest, const char *src, int destsize );
+// Count the number of char tocount encountered in string
+int Q_CountChar(const char *string, char tocount);
 
 //=============================================
 
@@ -801,42 +863,53 @@ default values.
 ==========================================================
 */
 
-#define	CVAR_ARCHIVE		1	// set to cause it to be saved to vars.rc
-								// used for system variables, not for player
-								// specific configurations
-#define	CVAR_USERINFO		2	// sent to server on connect or change
-#define	CVAR_SERVERINFO		4	// sent in response to front end requests
-#define	CVAR_SYSTEMINFO		8	// these cvars will be duplicated on all clients
-#define	CVAR_INIT			16	// don't allow change from console at all,
-								// but can be set from the command line
-#define	CVAR_LATCH			32	// will only change when C code next does
-								// a Cvar_Get(), so it can't be changed
-								// without proper initialization.  modified
-								// will be set, even though the value hasn't
-								// changed yet
-#define	CVAR_ROM			64	// display only, cannot be set by user at all
-#define	CVAR_USER_CREATED	128	// created by a set command
-#define	CVAR_TEMP			256	// can be set even when cheats are disabled, but is not archived
-#define CVAR_CHEAT			512	// can not be changed if cheats are disabled
-#define CVAR_NORESTART		1024	// do not clear when a cvar_restart is issued
+#define	CVAR_ARCHIVE		0x0001	// set to cause it to be saved to vars.rc
+					// used for system variables, not for player
+					// specific configurations
+#define	CVAR_USERINFO		0x0002	// sent to server on connect or change
+#define	CVAR_SERVERINFO		0x0004	// sent in response to front end requests
+#define	CVAR_SYSTEMINFO		0x0008	// these cvars will be duplicated on all clients
+#define	CVAR_INIT		0x0010	// don't allow change from console at all,
+					// but can be set from the command line
+#define	CVAR_LATCH		0x0020	// will only change when C code next does
+					// a Cvar_Get(), so it can't be changed
+					// without proper initialization.  modified
+					// will be set, even though the value hasn't
+					// changed yet
+#define	CVAR_ROM		0x0040	// display only, cannot be set by user at all
+#define	CVAR_USER_CREATED	0x0080	// created by a set command
+#define	CVAR_TEMP		0x0100	// can be set even when cheats are disabled, but is not archived
+#define CVAR_CHEAT		0x0200	// can not be changed if cheats are disabled
+#define CVAR_NORESTART		0x0400	// do not clear when a cvar_restart is issued
 
-#define CVAR_SERVER_CREATED	2048	// cvar was created by a server the client connected to.
+#define CVAR_SERVER_CREATED	0x0800	// cvar was created by a server the client connected to.
+#define CVAR_VM_CREATED		0x1000	// cvar was created exclusively in one of the VMs.
 #define CVAR_NONEXISTENT	0xFFFFFFFF	// Cvar doesn't exist.
 
 // nothing outside the Cvar_*() functions should modify these fields!
-typedef struct cvar_s {
-	char		*name;
-	char		*string;
-	char		*resetString;		// cvar_restart will reset to this value
-	char		*latchedString;		// for CVAR_LATCH vars
-	int			flags;
+typedef struct cvar_s cvar_t;
+
+struct cvar_s {
+	char			*name;
+	char			*string;
+	char			*resetString;		// cvar_restart will reset to this value
+	char			*latchedString;		// for CVAR_LATCH vars
+	int				flags;
 	qboolean	modified;			// set each time the cvar is changed
-	int			modificationCount;	// incremented each time the cvar is changed
-	float		value;				// atof( string )
-	int			integer;			// atoi( string )
-	struct cvar_s *next;
-	struct cvar_s *hashNext;
-} cvar_t;
+	int				modificationCount;	// incremented each time the cvar is changed
+	float			value;				// atof( string )
+	int				integer;			// atoi( string )
+	qboolean	validate;
+	qboolean	integral;
+	float			min;
+	float			max;
+
+	cvar_t *next;
+	cvar_t *prev;
+	cvar_t *hashNext;
+	cvar_t *hashPrev;
+	int			hashIndex;
+};
 
 #define	MAX_CVAR_VALUE_STRING	256
 
@@ -935,7 +1008,6 @@ typedef struct {
 // if none of the catchers are active, bound key strings will be executed
 #define KEYCATCH_CONSOLE		0x0001
 #define	KEYCATCH_UI					0x0002
-#define	KEYCATCH_MESSAGE		0x0004
 #define	KEYCATCH_CGAME			0x0008
 
 
@@ -977,6 +1049,7 @@ typedef enum {
 
 #define	GENTITYNUM_BITS		10		// don't need to send any more
 #define	MAX_GENTITIES		(1<<GENTITYNUM_BITS)
+#define GENTITYNUM_MASK		(MAX_GENTITIES - 1)
 
 // entitynums are communicated with GENTITY_BITS, so any reserved
 // values that are going to be communcated over the net need to
@@ -1013,7 +1086,7 @@ typedef struct {
 // bit field limits
 #define	MAX_STATS				16
 #define	MAX_PERSISTANT			16
-#define	MAX_POWERUPS			16
+#define	MAX_MISC    			16
 #define	MAX_WEAPONS				16		
 
 #define	MAX_PS_EVENTS			2
@@ -1053,6 +1126,10 @@ typedef struct playerState_s {
 	int			torsoTimer;		// don't change low priority animations until this runs out
 	int			torsoAnim;		// mask off ANIM_TOGGLEBIT
 
+	int			tauntTimer;		// don't allow another taunt until this runs out
+
+	int			weaponAnim;		// mask off ANIM_TOGGLEBIT
+
 	int			movementDir;	// a number 0 to 7 that represents the reletive angle
 								// of movement to the view angle (axial and diagonals)
 								// when at rest, the value will remain unchanged
@@ -1085,8 +1162,9 @@ typedef struct playerState_s {
 
 	int			stats[MAX_STATS];
 	int			persistant[MAX_PERSISTANT];	// stats that aren't cleared on death
-	int			powerups[MAX_POWERUPS];	// level.time that the powerup runs out
-	int			ammo[MAX_WEAPONS];
+	int			misc[MAX_MISC];	// misc data
+	int			ammo;			// ammo held
+	int			clips;			// clips held
 
 	int			generic1;
 	int			loopSound;
@@ -1109,7 +1187,7 @@ typedef struct playerState_s {
 //
 #define	BUTTON_ATTACK		1
 #define	BUTTON_TALK			2			// displays talk balloon and disables actions
-#define	BUTTON_USE_HOLDABLE	4
+#define BUTTON_USE_HOLDABLE 4           // activate upgrade
 #define	BUTTON_GESTURE		8
 #define	BUTTON_WALKING		16			// walking can't just be infered from MOVE_RUN
 										// because a key pressed late in the frame will
@@ -1117,12 +1195,9 @@ typedef struct playerState_s {
 										// walking will use different animations and
 										// won't generate footsteps
 #define BUTTON_ATTACK2	32
-#define	BUTTON_NEGATIVE		64
-
-#define BUTTON_GETFLAG		128
-#define BUTTON_GUARDBASE	256
-#define BUTTON_PATROL		512
-#define BUTTON_FOLLOWME		1024
+#define BUTTON_DODGE        64          // start a dodge or sprint motion
+#define BUTTON_USE_EVOLVE   128         // use target or open evolve menu
+#define BUTTON_SPRINT	256
 
 #define	BUTTON_ANY			2048			// any key whatsoever
 
@@ -1150,7 +1225,7 @@ typedef enum {
 	TR_LINEAR_STOP,
 	TR_SINE,					// value = base + sin( time / duration ) * delta
 	TR_GRAVITY,
-	TR_BUOYANCY //TA: what the hell is this doing in here anyway?
+	TR_BUOYANCY
 } trType_t;
 
 typedef struct {
@@ -1204,10 +1279,11 @@ typedef struct entityState_s {
 	int		eventParm;
 
 	// for players
-	int		powerups;		// bit flags
+	int		misc;			// bit flags
 	int		weapon;			// determines weapon and flash model, etc
 	int		legsAnim;		// mask off ANIM_TOGGLEBIT
 	int		torsoAnim;		// mask off ANIM_TOGGLEBIT
+	int		weaponAnim;		// mask off ANIM_TOGGLEBIT
 
 	int		generic1;
 } entityState_t;
@@ -1274,10 +1350,10 @@ typedef struct qtime_s {
 
 
 // server browser sources
-// TTimo: AS_MPLAYER is no longer used
-#define AS_GLOBAL			2
+// AS_MPLAYER is no longer used
+#define AS_GLOBAL			0
 #define AS_MPLAYER		1
-#define AS_LOCAL			0
+#define AS_LOCAL			2
 #define AS_FAVORITES	3
 
 
@@ -1315,11 +1391,16 @@ typedef enum {
 #define MAX_PINGREQUESTS					32
 #define MAX_SERVERSTATUSREQUESTS	16
 
-#define SAY_ALL		0
-#define SAY_TEAM	1
-#define SAY_TELL	2
-#define SAY_ACTION      3
-#define SAY_ACTION_T    4
-#define SAY_ADMINS    5
+#define MAX_EMOTICON_NAME_LEN 16
+#define MAX_EMOTICONS 64
+
+// flags for com_downloadPrompt
+#define DLP_TYPE_MASK 0x0f
+#define DLP_IGNORE    0x01 // don't download anything
+#define DLP_CURL      0x02 // download via HTTP redirect
+#define DLP_UDP       0x04 // download from server
+#define DLP_SHOW      0x10 // prompt needs to be shown
+#define DLP_PROMPTED  0x20 // prompt has been processed by client
+#define DLP_STALE     0x40 // prompt is not being shown by UI VM
 
 #endif	// __Q_SHARED_H

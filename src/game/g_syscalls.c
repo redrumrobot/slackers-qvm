@@ -1,7 +1,7 @@
 /*
 ===========================================================================
 Copyright (C) 1999-2005 Id Software, Inc.
-Copyright (C) 2000-2006 Tim Angus
+Copyright (C) 2000-2009 Darklegion Development
 
 This file is part of Tremulous.
 
@@ -29,7 +29,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 static intptr_t (QDECL *syscall)( intptr_t arg, ... ) = (intptr_t (QDECL *)( intptr_t, ...))-1;
 
 
-void dllEntry( intptr_t (QDECL *syscallptr)( intptr_t arg,... ) )
+Q_EXPORT void dllEntry( intptr_t (QDECL *syscallptr)( intptr_t arg,... ) )
 {
   syscall = syscallptr;
 }
@@ -41,7 +41,7 @@ int PASSFLOAT( float x )
   return *(int *)&floatTemp;
 }
 
-void  trap_Printf( const char *fmt )
+void  trap_Print( const char *fmt )
 {
   syscall( G_PRINT, fmt );
 }
@@ -145,6 +145,11 @@ void trap_SetConfigstring( int num, const char *string )
 void trap_GetConfigstring( int num, char *buffer, int bufferSize )
 {
   syscall( G_GET_CONFIGSTRING, num, buffer, bufferSize );
+}
+
+void trap_SetConfigstringRestrictions( int num, const clientList_t *clientList )
+{
+  syscall( G_SET_CONFIGSTRING_RESTRICTIONS, num, clientList );
 }
 
 void trap_GetUserinfo( int num, char *buffer, int bufferSize )
@@ -280,5 +285,15 @@ int trap_Parse_ReadToken( int handle, pc_token_t *pc_token )
 int trap_Parse_SourceFileAndLine( int handle, char *filename, int *line )
 {
   return syscall( G_PARSE_SOURCE_FILE_AND_LINE, handle, filename, line );
+}
+
+void trap_AddCommand( const char *cmdName )
+{
+  syscall( G_ADDCOMMAND, cmdName );
+}
+
+void trap_RemoveCommand( const char *cmdName )
+{
+  syscall( G_REMOVECOMMAND, cmdName );
 }
 

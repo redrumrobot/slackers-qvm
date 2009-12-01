@@ -1,7 +1,7 @@
 /*
 ===========================================================================
 Copyright (C) 1999-2005 Id Software, Inc.
-Copyright (C) 2000-2006 Tim Angus
+Copyright (C) 2000-2009 Darklegion Development
 
 This file is part of Tremulous.
 
@@ -51,14 +51,14 @@ void multi_trigger( gentity_t *ent, gentity_t *activator )
   if( ent->nextthink )
     return;   // can't retrigger until the wait is over
 
-  if( activator->client )
+  if( activator && activator->client )
   {
     if( ( ent->spawnflags & 1 ) &&
-        activator->client->ps.stats[ STAT_PTEAM ] != PTE_HUMANS )
+        activator->client->ps.stats[ STAT_TEAM ] != TEAM_HUMANS )
       return;
 
     if( ( ent->spawnflags & 2 ) &&
-        activator->client->ps.stats[ STAT_PTEAM ] != PTE_ALIENS )
+        activator->client->ps.stats[ STAT_TEAM ] != TEAM_ALIENS )
       return;
   }
 
@@ -227,7 +227,7 @@ void SP_trigger_push( gentity_t *self )
 
 void Use_target_push( gentity_t *self, gentity_t *other, gentity_t *activator )
 {
-  if( !activator->client )
+  if( !activator || !activator->client )
     return;
 
   if( activator->client->ps.pm_type != PM_NORMAL )
@@ -283,7 +283,7 @@ void trigger_teleporter_touch( gentity_t *self, gentity_t *other, trace_t *trace
 
   // Spectators only?
   if( ( self->spawnflags & 1 ) &&
-      other->client->sess.sessionTeam != TEAM_SPECTATOR )
+      other->client->sess.spectatorState == SPECTATOR_NOT )
     return;
 
 
@@ -489,7 +489,7 @@ G_Checktrigger_stages
 Called when stages change
 ===============
 */
-void G_Checktrigger_stages( pTeam_t team, stage_t stage )
+void G_Checktrigger_stages( team_t team, stage_t stage )
 {
   int i;
   gentity_t *ent;
@@ -558,6 +558,9 @@ qboolean trigger_buildable_match( gentity_t *self, gentity_t *activator )
 {
   int i = 0;
 
+  if( !activator )
+    return qfalse;
+
   //if there is no buildable list every buildable triggers
   if( self->bTriggers[ i ] == BA_NONE )
     return qtrue;
@@ -623,7 +626,7 @@ trigger_buildable_touch
 void trigger_buildable_touch( gentity_t *ent, gentity_t *other, trace_t *trace )
 {
   //only triggered by buildables
-  if( other->s.eType != ET_BUILDABLE )
+  if( !other || other->s.eType != ET_BUILDABLE )
     return;
 
   trigger_buildable_trigger( ent, other );
@@ -686,6 +689,9 @@ qboolean trigger_class_match( gentity_t *self, gentity_t *activator )
 {
   int i = 0;
 
+  if( !activator )
+    return qfalse;
+
   //if there is no class list every class triggers (stupid case)
   if( self->cTriggers[ i ] == PCL_NONE )
     return qtrue;
@@ -694,7 +700,7 @@ qboolean trigger_class_match( gentity_t *self, gentity_t *activator )
     //otherwise check against the list
     for( i = 0; self->cTriggers[ i ] != PCL_NONE; i++ )
     {
-      if( activator->client->ps.stats[ STAT_PCLASS ] == self->cTriggers[ i ] )
+      if( activator->client->ps.stats[ STAT_CLASS ] == self->cTriggers[ i ] )
         return qtrue;
     }
   }
@@ -710,10 +716,10 @@ trigger_class_trigger
 void trigger_class_trigger( gentity_t *self, gentity_t *activator )
 {
   //sanity check
-  if( !activator->client )
+  if( !activator || !activator->client )
     return;
 
-  if( activator->client->ps.stats[ STAT_PTEAM ] != PTE_ALIENS )
+  if( activator->client->ps.stats[ STAT_TEAM ] != TEAM_ALIENS )
     return;
 
   if( self->s.eFlags & EF_NODRAW )
@@ -820,6 +826,9 @@ qboolean trigger_equipment_match( gentity_t *self, gentity_t *activator )
 {
   int i = 0;
 
+  if( !activator )
+    return qfalse;
+
   //if there is no equipment list all equipment triggers (stupid case)
   if( self->wTriggers[ i ] == WP_NONE && self->uTriggers[ i ] == UP_NONE )
     return qtrue;
@@ -850,10 +859,10 @@ trigger_equipment_trigger
 void trigger_equipment_trigger( gentity_t *self, gentity_t *activator )
 {
   //sanity check
-  if( !activator->client )
+  if( !activator || !activator->client )
     return;
 
-  if( activator->client->ps.stats[ STAT_PTEAM ] != PTE_HUMANS )
+  if( activator->client->ps.stats[ STAT_TEAM ] != TEAM_HUMANS )
     return;
 
   if( self->s.eFlags & EF_NODRAW )
@@ -1073,12 +1082,12 @@ trigger_ammo_touch
 */
 void trigger_ammo_touch( gentity_t *self, gentity_t *other, trace_t *trace )
 {
-  int ammo, clips, maxClips, maxAmmo;
+  int maxClips, maxAmmo;
 
   if( !other->client )
     return;
 
-  if( other->client->ps.stats[ STAT_PTEAM ] != PTE_HUMANS )
+  if( other->client->ps.stats[ STAT_TEAM ] != TEAM_HUMANS )
     return;
 
   if( self->timestamp > level.time )
@@ -1087,10 +1096,10 @@ void trigger_ammo_touch( gentity_t *self, gentity_t *other, trace_t *trace )
   if( other->client->ps.weaponstate != WEAPON_READY )
     return;
 
-  if( BG_FindUsesEnergyForWeapon( other->client->ps.weapon ) && self->spawnflags & 2 )
+  if( BG_Weapon( other->client->ps.weapon )->usesEnergy && self->spawnflags & 2 )
     return;
 
-  if( !BG_FindUsesEnergyForWeapon( other->client->ps.weapon ) && self->spawnflags & 4 )
+  if( !BG_Weapon( other->client->ps.weapon )->usesEnergy && self->spawnflags & 4 )
     return;
 
   if( self->spawnflags & 1 )
@@ -1098,25 +1107,21 @@ void trigger_ammo_touch( gentity_t *self, gentity_t *other, trace_t *trace )
   else
     self->timestamp = level.time + FRAMETIME;
 
-  BG_FindAmmoForWeapon( other->client->ps.weapon, &maxAmmo, &maxClips );
-  BG_UnpackAmmoArray( other->client->ps.weapon, other->client->ps.ammo, other->client->ps.powerups,
-                      &ammo, &clips );
+  maxAmmo = BG_Weapon( other->client->ps.weapon )->maxAmmo;
+  maxClips = BG_Weapon( other->client->ps.weapon )->maxClips;
 
-  if( ( ammo + self->damage ) > maxAmmo )
+  if( ( other->client->ps.ammo + self->damage ) > maxAmmo )
   {
-    if( clips < maxClips )
+    if( other->client->ps.clips < maxClips )
     {
-      clips++;
-      ammo = 1;
+      other->client->ps.clips++;
+      other->client->ps.ammo = 1;
     }
     else
-      ammo = maxAmmo;
+      other->client->ps.ammo = maxAmmo;
   }
   else
-    ammo += self->damage;
-
-  BG_PackAmmoArray( other->client->ps.weapon, other->client->ps.ammo, other->client->ps.powerups,
-                    ammo, clips );
+    other->client->ps.ammo += self->damage;
 }
 
 /*

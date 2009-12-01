@@ -1,7 +1,7 @@
 /*
 ===========================================================================
 Copyright (C) 1999-2005 Id Software, Inc.
-Copyright (C) 2000-2006 Tim Angus
+Copyright (C) 2000-2009 Darklegion Development
 
 This file is part of Tremulous.
 
@@ -298,15 +298,7 @@ qboolean PM_StepSlideMove( qboolean gravity, qboolean predictive )
   float     stepSize;
   qboolean  stepped = qfalse;
 
-  if( pm->ps->stats[ STAT_STATE ] & SS_WALLCLIMBING )
-  {
-    if( pm->ps->stats[ STAT_STATE ] & SS_WALLCLIMBINGCEILING )
-      VectorSet( normal, 0.0f, 0.0f, -1.0f );
-    else
-      VectorCopy( pm->ps->grapplePoint, normal );
-  }
-  else
-    VectorSet( normal, 0.0f, 0.0f, 1.0f );
+  BG_GetClientNormal( pm->ps, normal );
 
   VectorCopy( pm->ps->origin, start_o );
   VectorCopy( pm->ps->velocity, start_v );

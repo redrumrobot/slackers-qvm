@@ -1,7 +1,7 @@
 /*
 ===========================================================================
 Copyright (C) 1999-2005 Id Software, Inc.
-Copyright (C) 2000-2006 Tim Angus
+Copyright (C) 2000-2009 Darklegion Development
 
 This file is part of Tremulous.
 
@@ -45,8 +45,8 @@ static void G_Bounce( gentity_t *ent, trace_t *trace )
 
   if( ent->s.eType == ET_BUILDABLE )
   {
-    minNormal = BG_FindMinNormalForBuildable( ent->s.modelindex );
-    invert = BG_FindInvertNormalForBuildable( ent->s.modelindex );
+    minNormal = BG_Buildable( ent->s.modelindex )->minNormal;
+    invert = BG_Buildable( ent->s.modelindex )->invertNormal;
   }
   else
     minNormal = 0.707f;
@@ -94,9 +94,9 @@ void G_Physics( gentity_t *ent, int msec )
   {
     if( ent->s.eType == ET_BUILDABLE )
     {
-      if( ent->s.pos.trType != BG_FindTrajectoryForBuildable( ent->s.modelindex ) )
+      if( ent->s.pos.trType != BG_Buildable( ent->s.modelindex )->traj )
       {
-        ent->s.pos.trType = BG_FindTrajectoryForBuildable( ent->s.modelindex );
+        ent->s.pos.trType = BG_Buildable( ent->s.modelindex )->traj;
         ent->s.pos.trTime = level.time;
       }
     }
@@ -111,7 +111,7 @@ void G_Physics( gentity_t *ent, int msec )
   if( ent->clipmask )
     mask = ent->clipmask;
   else
-    mask = MASK_PLAYERSOLID & ~CONTENTS_BODY;//MASK_SOLID;
+    mask = MASK_DEADSOLID;
 
   if( ent->s.pos.trType == TR_STATIONARY )
   {

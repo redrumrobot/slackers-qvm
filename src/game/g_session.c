@@ -1,7 +1,7 @@
 /*
 ===========================================================================
 Copyright (C) 1999-2005 Id Software, Inc.
-Copyright (C) 2000-2006 Tim Angus
+Copyright (C) 2000-2009 Darklegion Development
 
 This file is part of Tremulous.
 
@@ -46,17 +46,12 @@ void G_WriteClientSessionData( gclient_t *client )
   const char  *s;
   const char  *var;
 
-  s = va( "%i %i %i %i %i %i %i %i %i %s",
-    client->sess.sessionTeam,
-    client->sess.restartTeam,
+  s = va( "%i %i %i %i %s",
     client->sess.spectatorTime,
     client->sess.spectatorState,
     client->sess.spectatorClient,
-    client->sess.wins,
-    client->sess.losses,
-    client->sess.teamLeader,
-    client->sess.invisible,
-    BG_ClientListString( &client->sess.ignoreList )
+    client->sess.restartTeam,
+    Com_ClientListString( &client->sess.ignoreList )
     );
 
   var = va( "session%i", client - level.clients );
@@ -73,40 +68,26 @@ Called on a reconnect
 */
 void G_ReadSessionData( gclient_t *client )
 {
-  char  s[ MAX_STRING_CHARS ];
+  char        s[ MAX_STRING_CHARS ];
   const char  *var;
-
-  // bk001205 - format
-  int teamLeader;
-  int spectatorState;
-  int sessionTeam;
-  int restartTeam;
-  int invisible;
+  int         spectatorState;
+  int         restartTeam;
+  char        ignorelist[ 17 ];
 
   var = va( "session%i", client - level.clients );
   trap_Cvar_VariableStringBuffer( var, s, sizeof(s) );
 
-  // FIXME: should be using BG_ClientListParse() for ignoreList, but
-  //        bg_lib.c's sscanf() currently lacks %s
-  sscanf( s, "%i %i %i %i %i %i %i %i %i %x%x",
-    &sessionTeam,
-    &restartTeam,
+  sscanf( s, "%i %i %i %i %16s",
     &client->sess.spectatorTime,
     &spectatorState,
     &client->sess.spectatorClient,
-    &client->sess.wins,
-    &client->sess.losses,
-    &teamLeader,
-    &invisible,
-    &client->sess.ignoreList.hi,
-    &client->sess.ignoreList.lo
+    &restartTeam,
+    ignorelist
     );
-  // bk001205 - format issues
-  client->sess.sessionTeam = (team_t)sessionTeam;
-  client->sess.restartTeam = (pTeam_t)restartTeam;
+
   client->sess.spectatorState = (spectatorState_t)spectatorState;
-  client->sess.teamLeader = (qboolean)teamLeader;
-  client->sess.invisible = (qboolean)invisible;
+  client->sess.restartTeam = (team_t)restartTeam;
+  Com_ClientListParse( &client->sess.ignoreList, ignorelist );
 }
 
 
@@ -129,18 +110,18 @@ void G_InitSessionData( gclient_t *client, char *userinfo )
   if( value[ 0 ] == 's' )
   {
     // a willing spectator, not a waiting-in-line
-    sess->sessionTeam = TEAM_SPECTATOR;
+    sess->spectatorState = SPECTATOR_FREE;
   }
   else
   {
     if( g_maxGameClients.integer > 0 &&
       level.numNonSpectatorClients >= g_maxGameClients.integer )
-      sess->sessionTeam = TEAM_SPECTATOR;
+      sess->spectatorState = SPECTATOR_FREE;
     else
-      sess->sessionTeam = TEAM_FREE;
+      sess->spectatorState = SPECTATOR_NOT;
   }
 
-  sess->restartTeam = PTE_NONE;
+  sess->restartTeam = TEAM_NONE;
   sess->spectatorState = SPECTATOR_FREE;
   sess->spectatorTime = level.time;
   sess->spectatorClient = -1;
@@ -160,7 +141,7 @@ void G_WriteSessionData( void )
 {
   int    i;
 
-  //TA: ?
+  //FIXME: What's this for?
   trap_Cvar_Set( "session", va( "%i", 0 ) );
 
   for( i = 0 ; i < level.maxclients ; i++ )

@@ -1,7 +1,7 @@
 /*
 ===========================================================================
 Copyright (C) 1999-2005 Id Software, Inc.
-Copyright (C) 2000-2006 Tim Angus
+Copyright (C) 2000-2009 Darklegion Development
 
 This file is part of Tremulous.
 
@@ -63,7 +63,6 @@ void G_UpdatePTRConnection( gclient_t *client )
   {
     client->pers.connection->clientTeam = client->pers.teamSelection;
     client->pers.connection->clientCredit = client->pers.credit;
-    client->pers.connection->clientScore = client->pers.score;
   }
 }
 
@@ -78,9 +77,6 @@ connectionRecord_t *G_GenerateNewConnection( gclient_t *client )
 {
   int     code = 0;
   int     i;
-
-  // this should be really random
-  srand( trap_Milliseconds( ) );
 
   // there is a very very small possibility that this
   // will loop infinitely
@@ -98,13 +94,35 @@ connectionRecord_t *G_GenerateNewConnection( gclient_t *client )
       connections[ i ].clientNum = client->ps.clientNum;
       client->pers.connection = &connections[ i ];
       G_UpdatePTRConnection( client );
-      client->pers.connection->clientEnterTime = client->pers.enterTime;
 
       return &connections[ i ];
     }
   }
 
   return NULL;
+}
+
+/*
+===============
+G_VerifyPTRC
+
+Check a PTR code for validity
+===============
+*/
+qboolean G_VerifyPTRC( int code )
+{
+  int i;
+
+  if( code == 0 )
+    return qfalse;
+
+  for( i = 0; i < MAX_CLIENTS; i++ )
+  {
+    if( connections[ i ].ptrCode == code )
+      return qtrue;
+  }
+
+  return qfalse;
 }
 
 /*
@@ -128,6 +146,19 @@ connectionRecord_t *G_FindConnectionForCode( int code )
   }
 
   return NULL;
+}
+
+/*
+===============
+G_DeletePTRConnection
+
+Finds a connection and deletes it
+===============
+*/
+void G_DeletePTRConnection( connectionRecord_t *connection )
+{
+  if( connection )
+    memset( connection, 0, sizeof( connectionRecord_t ) );
 }
 
 /*
