@@ -90,6 +90,17 @@ g_admin_cmd_t g_admin_cmds[ ] =
       "[^3name|slot#^7]"
     },
 
+    {"flag", G_admin_flag, "flag",
+      "add an admin flag to a player, prefix flag with '-' to disallow the flag. "
+      "console can use this command on admin levels by prefacing a '*' to the admin level value.",
+      "[^3name|slot#|admin#|*level#^7] (^5+^7|^5-^7)[^3flag^7]"
+    },
+
+    {"flaglist", G_admin_flaglist, "flag",
+      "list the flags understood by this server",
+      ""
+    },
+
     {"kick", G_admin_kick, "kick",
       "kick a player with an optional reason",
       "[^3name|slot#^7] (^5reason^7)"
@@ -176,6 +187,12 @@ g_admin_cmd_t g_admin_cmds[ ] =
     {"unban", G_admin_unban, "ban",
       "unbans a player specified by the slot as seen in showbans",
       "[^3ban#^7]"
+    },
+
+    {"unflag", G_admin_flag, "flag",
+      "clears an admin flag from a player. "
+      "console can use this command on admin levels by prefacing a '*' to the admin level value.",
+      "[^3name|slot#|admin#|*level#^7] (^5+^7|^5-^7)[^3flag^7]"
     },
 
     {"unlock", G_admin_lock, "lock",
@@ -772,6 +789,144 @@ static int admin_listadmins( gentity_t *ent, int start, char *search )
   return drawn;
 }
 
+static int admin_find_admin( gentity_t *ent, char *name, const char *command,
+                             gentity_t **client, g_admin_admin_t **admin )
+{
+  char            cleanName[ MAX_NAME_LENGTH ];
+  char            testName[ MAX_NAME_LENGTH ];
+  char            *p;
+  int             id = -1;
+  int             matches = 0;
+  int             i;
+  g_admin_admin_t *a = NULL;
+  gentity_t       *vic = NULL;
+  qboolean        numeric = qtrue;
+
+  if( client )
+    *client = NULL;
+  if( admin )
+    *admin = NULL;
+  if( !name || !name[ 0 ] )
+    return -1;
+
+  if( !command )
+    command = "match";
+
+  for( p = name; ( *p ); p++ )
+  {
+    if( !isdigit( *p ) )
+    {
+      numeric = qfalse;
+      break;
+    }
+  }
+
+  if( numeric )
+  {
+    id = atoi( name );
+
+    if( id >= 0 && id < level.maxclients )
+    {
+      vic = &g_entities[ id ];
+      if( !vic || !vic->client || vic->client->pers.connected == CON_DISCONNECTED )
+      {
+        ADMP( va( "^3%s: ^7no player connected in slot %d\n", command, id ) );
+        return -1;
+      }
+      a = vic->client->pers.admin;
+    }
+    else if( id >= MAX_CLIENTS )
+    {
+      for( i = MAX_CLIENTS, a = g_admin_admins; a ; i++, a = a->next )
+      {
+        if( i == id )
+          break;
+      }
+
+      for( i = 0; i < level.maxclients; i++ )
+      {
+        if( level.clients[ i ].pers.connected == CON_DISCONNECTED )
+          continue;
+
+        if( level.clients[ i ].pers.admin == a )
+        {
+          vic = &g_entities[ i ];
+          break;
+        }
+      }
+    }
+
+    if( !vic && !a )
+    {
+      for( i = 0, a = g_admin_admins; a ; i++, a = a->next);
+      ADMP( va( "^3%s: ^7%s not in range 0-%d or %d-%d\n",
+                command, name,
+                level.maxclients - 1,
+                MAX_CLIENTS, MAX_CLIENTS + i - 1 ) );
+      return -1;
+    }
+  }
+  else
+  {
+    g_admin_admin_t *wa;
+
+    G_SanitiseString( name, cleanName, sizeof( cleanName ) );
+    for( wa = g_admin_admins, i = MAX_CLIENTS; wa && matches < 2; wa = wa->next, i++ )
+    {
+      G_SanitiseString( wa->name, testName, sizeof( testName ) );
+      if( strstr( testName, cleanName ) )
+      {
+        id = i;
+        a = wa;
+        matches++;
+      }
+    }
+
+    for( i = 0; i < level.maxclients && matches < 2; i++ )
+    {
+      if( level.clients[ i ].pers.connected == CON_DISCONNECTED )
+        continue;
+
+      if( matches && a && level.clients[ i ].pers.admin == a )
+      {
+        vic = &g_entities[ i ];
+        continue;
+      }
+
+      G_SanitiseString( level.clients[ i ].pers.netname,
+                        testName, sizeof( testName ) );
+      if( strstr( testName, cleanName ) )
+      {
+        id = i;
+        vic = &g_entities[ i ];
+        a = vic->client->pers.admin;
+        matches++;
+      }
+    }
+
+    if( matches == 0 )
+    {
+      ADMP( va( "^3%s:^7 no match, use listplayers or listadmins to "
+                "find an appropriate number to use instead of name.\n",
+                command ) );
+      return -1;
+    }
+    if( matches > 1 )
+    {
+      ADMP( va( "^3%s:^7 more than one match, use the admin number instead:\n",
+                command ) );
+      admin_listadmins( ent, 0, cleanName );
+      return -1;
+    }
+  }
+
+  if( client )
+    *client = vic;
+  if( admin )
+    *admin = a;
+  return id;
+}
+
 void G_admin_duration( int secs, char *duration, int dursize )
 {
   // sizeof("12.5 minutes") == 13
@@ -1189,14 +1344,11 @@ qboolean G_admin_time( gentity_t *ent )
 
 qboolean G_admin_setlevel( gentity_t *ent )
 {
-  char name[ MAX_NAME_LENGTH ] = {""};
-  char lstr[ 12 ]; // 11 is max strlen() for 32-bit (signed) int
-  char testname[ MAX_NAME_LENGTH ] = {""};
-  int i;
-  gentity_t *vic = NULL;
+  char            name[ MAX_NAME_LENGTH ];
+  char            lstr[ 12 ]; // 11 is max strlen() for 32-bit (signed) int
+  gentity_t       *vic = NULL;
   g_admin_admin_t *a = NULL;
-  g_admin_level_t *l = NULL;
-  int na;
+  g_admin_level_t *l;
 
   if( trap_Argc() < 3 )
   {
@@ -1204,7 +1356,7 @@ qboolean G_admin_setlevel( gentity_t *ent )
     return qfalse;
   }
 
-  trap_Argv( 1, testname, sizeof( testname ) );
+  trap_Argv( 1, name, sizeof( name ) );
   trap_Argv( 2, lstr, sizeof( lstr ) );
 
   if( !( l = G_admin_level( atoi( lstr ) ) ) )
@@ -1221,86 +1373,8 @@ qboolean G_admin_setlevel( gentity_t *ent )
     return qfalse;
   }
 
-  for( na = 0, a = g_admin_admins; a; na++, a = a->next );
-
-  for( i = 0; testname[ i ] && isdigit( testname[ i ] ); i++ );
-  if( !testname[ i ] )
-  {
-    int id = atoi( testname );
-    if( id < MAX_CLIENTS )
-    {
-      vic = &g_entities[ id ];
-      if( !vic || !vic->client || vic->client->pers.connected == CON_DISCONNECTED )
-      {
-        ADMP( va( "^3setlevel: ^7no player connected in slot %d\n", id ) );
-        return qfalse;
-      }
-    }
-    else if( id < na + MAX_CLIENTS )
-      for( i = 0, a = g_admin_admins; i < id - MAX_CLIENTS; i++, a = a->next );
-    else
-    {
-      ADMP( va( "^3setlevel: ^7%s not in range 1-%d\n",
-                testname, na + MAX_CLIENTS - 1 ) );
-      return qfalse;
-    }
-  }
-  else
-    G_SanitiseString( testname, name, sizeof( name ) );
-
-  if( vic )
-    a = vic->client->pers.admin;
-  else if( !a )
-  {
-    g_admin_admin_t *wa;
-    int             matches = 0;
-
-    for( wa = g_admin_admins; wa && matches < 2; wa = wa->next )
-    {
-      G_SanitiseString( wa->name, testname, sizeof( testname ) );
-      if( strstr( testname, name ) )
-      {
-        a = wa;
-        matches++;
-      }
-    }
-
-    for( i = 0; i < level.maxclients && matches < 2; i++ )
-    {
-      if( level.clients[ i ].pers.connected == CON_DISCONNECTED )
-        continue;
-
-      if( matches && level.clients[ i ].pers.admin && 
-          level.clients[ i ].pers.admin == a )
-      {
-        vic = &g_entities[ i ];
-        continue;
-      }
-
-      G_SanitiseString( level.clients[ i ].pers.netname, testname,
-        sizeof( testname ) );
-      if( strstr( testname, name ) )
-      {
-        vic = &g_entities[ i ];
-        a = vic->client->pers.admin;
-        matches++;
-      }
-    }
-
-    if( matches == 0 )
-    {
-      ADMP( "^3setlevel:^7 no match.  use listplayers or listadmins to "
-        "find an appropriate number to use instead of name.\n" );
-      return qfalse;
-    }
-    if( matches > 1 )
-    {
-      ADMP( "^3setlevel:^7 more than one match.  Use the admin number "
-        "instead:\n" );
-      admin_listadmins( ent, 0, name );
-      return qfalse;
-    }
-  }
+  if( admin_find_admin( ent, name, "setlevel", &vic, &a ) < 0 )
+    return qfalse;
 
   if( ent && !admin_higher_admin( ent->client->pers.admin, a ) )
   {
@@ -2873,6 +2947,327 @@ qboolean G_admin_lock( gentity_t *ent )
     command, BG_TeamName( team ), lock ? "" : "un",
     ent ? ent->client->pers.netname : "console" ) );
 
+  return qtrue;
+}
+
+/*
+================
+ G_admin_flag_update
+
+ Update a flag string
+ Resulting string is sorted
+================
+*/
+
+static int G_admin_flag_sort( const void *pa, const void *pb )
+{
+  const char *a = pa;
+  const char *b = pb;
+
+  if( *a == '-' || *a == '+' )
+    a++;
+  if( *b == '-' || *b == '+' )
+    b++;
+
+  return strcmp( a, b );
+}
+
+const char *G_admin_flag_update( char *newflags, char *oldflags, int size,
+                                 const char *flag, qboolean add, qboolean permission )
+{
+  char     *token, *token_p;
+  char     *key;
+  char     flags[ MAX_ADMIN_FLAG_KEYS ][ MAX_ADMIN_FLAG_LEN ];
+  qboolean found = qfalse;
+  int      count = 0;
+  int      i;
+
+  if( !flag[ 0 ] )
+    return "invalid admin flag";
+
+  token_p = oldflags;
+  while( *( token = COM_Parse( &token_p ) ) )
+  {
+    key = token;
+    if( *key == '-' || *key == '+' )
+      key++;
+
+    if( !strcmp( key, flag ) )
+    {
+        found = qtrue;
+        continue;
+    }
+
+    if( count < MAX_ADMIN_FLAG_KEYS )
+    {
+      Q_strncpyz( flags[ count ], token, sizeof( flags[ count ] ) );
+      count++;
+    }
+  }
+
+  if( add )
+  {
+    if( count >= MAX_ADMIN_FLAG_KEYS )
+      return "too many admin flags, flag not set";
+
+    Com_sprintf( flags[ count ], sizeof( flags[ count ] ),
+                 "%c%s",
+                 ( permission ) ? '+' : '-',
+                 flag );
+    count++;
+  }
+  else if( !found )
+  {
+    return "flag was not present";
+  }
+
+  qsort( flags, count, sizeof( flags[ 0 ] ), G_admin_flag_sort );
+
+  // build new string
+  newflags[ 0 ] = '\0';
+  for( i = 0; i < count; i++ )
+  {
+    Q_strcat( newflags, size,
+              va( "%s%s", ( i ) ? " " : "", flags[ i ] ) );
+  }
+
+  return NULL;
+}
+
+/*
+================
+ G_admin_flaglist
+
+ List flags known to game
+================
+*/
+typedef struct
+{
+  char *flag;
+  char *description;
+}
+g_admin_flag_t;
+
+static g_admin_flag_t g_admin_flags[] = {
+  { ADMF_ACTIVITY,             "inactivity rules do not apply" },
+  { ADMF_ADMINCHAT,            "can see and use admin chat" },
+  { ADMF_ALLFLAGS,             "can use any command" },
+  { ADMF_CAN_PERM_BAN,         "can permanently ban players" },
+  { ADMF_FORCETEAMCHANGE,      "team balance rules do not apply" },
+  { ADMF_INCOGNITO,            "does not show as admin in !listplayers" },
+  { ADMF_IMMUNITY,             "cannot be vote kicked, vote muted, or banned" },
+  { ADMF_IMMUTABLE,            "admin commands cannot be used on them" },
+  { ADMF_NOCENSORFLOOD,        "no flood protection" },
+  { ADMF_NO_VOTE_LIMIT,        "vote limitations do not apply" },
+  { ADMF_SPEC_ALLCHAT,         "can see team chat as spectator" },
+  { ADMF_UNACCOUNTABLE,        "does not need to specify reason for kick/ban" }
+};
+static int adminNumFlags =
+  sizeof( g_admin_flags ) / sizeof( g_admin_flags[ 0 ] );
+
+qboolean G_admin_flaglist( gentity_t *ent )
+{
+  qboolean shown[ MAX_ADMIN_FLAG_KEYS ];
+  int      count = 0;
+  int      i, j;
+
+  ADMBP_begin();
+
+  ADMBP( "^3Ability flags:\n" );
+  for( i = 0; i < adminNumFlags; i++ )
+  {
+    ADMBP( va( "  ^5%-20s ^7%s\n",
+               g_admin_flags[ i ].flag,
+               g_admin_flags[ i ].description ) );
+  }
+
+  ADMBP( "^3Command flags:\n" );
+  memset( shown, 0, sizeof( shown ) );
+  for( i = 0; i < adminNumCmds; i++ )
+  {
+    if( i < MAX_ADMIN_FLAG_KEYS && shown[ i ] )
+      continue;
+    ADMBP( va( "  ^5%-20s^7", g_admin_cmds[ i ].flag ) );
+    for( j = i; j < adminNumCmds; j++ )
+    {
+      if( !strcmp( g_admin_cmds[ j ].flag, g_admin_cmds[ i ].flag ) )
+      {
+        ADMBP( va( " %s", g_admin_cmds[ j ].keyword ) );
+        if( j < MAX_ADMIN_FLAG_KEYS )
+          shown[ j ] = qtrue;
+      }
+    }
+    ADMBP( "\n" );
+    count++;
+  }
+
+  ADMBP( va( "^3flaglist: ^7listed %d ability and %d command flags\n",
+             adminNumFlags, count ) );
+  ADMBP_end();
+
+  return qtrue;
+}
+
+/*
+================
+ G_admin_flag
+
+ Set flag permissions for a player or admin level
+================
+*/
+qboolean G_admin_flag( gentity_t *ent )
+{
+  g_admin_admin_t *admin = NULL;
+  g_admin_level_t *level = NULL;
+  gentity_t       *vic = NULL;
+  char            command[ MAX_ADMIN_CMD_LEN ];
+  char            name[ MAX_NAME_LENGTH ];
+  char            adminname[ MAX_NAME_LENGTH ];
+  char            flagbuf[ MAX_ADMIN_FLAG_LEN ];
+  char            *flag;
+  qboolean        add = qtrue;
+  qboolean        perm = qtrue;
+  const char      *action = "allowed";
+  const char      *result;
+  char            *flagPtr;
+  int             flagSize;
+  int             id;
+
+  trap_Argv( 0, command, sizeof( command ) );
+
+  if( trap_Argc() < 2 )
+  {
+    ADMP( va( "^3%s: ^7usage: %s [^3name|slot#|admin#|*level#^7] (^5+^7|^5-^7)[^3flag^7]\n",
+              command, command ) );
+    return qfalse;
+  }
+
+  trap_Argv( 1, name, sizeof( name ) );
+  if( name[ 0 ] == '*' )
+  {
+    if( ent )
+    {
+      ADMP( va( "^3%s: only console can change admin level flags\n",
+                command ) );
+      return qfalse;
+    }
+
+    id = atoi( name + 1 );
+    level = G_admin_level( id );
+    if( !level )
+    {
+      ADMP( va( "^3%s: admin level %d does not exist\n",
+                command, id ) );
+      return qfalse;
+    }
+
+    Com_sprintf( adminname, sizeof( adminname ),
+               "admin level %d", level->level );
+  }
+  else
+  {
+    if( admin_find_admin( ent, name, command, &vic, &admin ) < 0 )
+      return qfalse;
+
+    if( !admin || admin->level == 0 )
+    {
+      ADMP( va( "^3%s:^7 your intended victim is not an admin\n",
+                command ) );
+      return qfalse;
+    }
+
+    if ( ent &&
+         !admin_higher_admin( ent->client->pers.admin, admin ) )
+    {
+      ADMP( va( "^3%s:^7 your intended victim has a higher admin level than you\n",
+                command ) );
+      return qfalse;
+    }
+
+    Q_strncpyz( adminname, admin->name, sizeof( adminname ));
+  }
+
+  if( trap_Argc() < 3 )
+  {
+    if( !level )
+    {
+      level = G_admin_level( admin->level );
+      ADMP( va( "^3%s:^7 flags for %s^7 are '^3%s^7'\n",
+                command,
+                admin->name, admin->flags ) );
+    }
+    if( level )
+    {
+      ADMP( va( "^3%s:^7 admin level %d flags are '%s'\n",
+                command,
+                level->level, level->flags ) );
+    }
+    return qtrue;
+  }
+
+  trap_Argv( 2, flagbuf, sizeof( flagbuf ) );
+  flag = flagbuf;
+  if( flag[ 0 ] == '-' || flag[ 0 ] == '+' )
+  {
+    perm = ( flag[ 0 ] == '+' );
+    flag++;
+    if( !perm )
+      action = "denied";
+  }
+
+  if( !Q_stricmp( command, "unflag" ) )
+  {
+    add = qfalse;
+    action = "cleared";
+  }
+
+  if( ent && ent->client->pers.admin == admin )
+  {
+    ADMP( va( "^3%s:^7 you may not change your own flags (use rcon)\n",
+              command ) );
+    return qfalse;
+  }
+
+  if( !G_admin_permission( ent, flag ) )
+  {
+    ADMP( va( "^3%s:^7 you may only change flags that you also have\n",
+              command ) );
+    return qfalse;
+  }
+
+  if( level )
+  {
+    flagPtr = level->flags;
+    flagSize = sizeof( level->flags );
+  }
+  else
+  {
+    flagPtr = admin->flags;
+    flagSize = sizeof( admin->flags );
+  }
+
+  result = G_admin_flag_update( flagPtr, flagPtr, flagSize,
+                                flag, add, perm );
+  if( result )
+  {
+    ADMP( va( "^3%s: ^7an error occured %s flag '^3%s^7' for %s^7, %s\n",
+              command, ( add ) ? "setting" : "clearing",
+              flag, adminname, result ) );
+    return qfalse;
+  }
+
+  if( !G_admin_permission( ent, ADMF_ADMINCHAT ) )
+  {
+    ADMP( va( "^3%s: ^7flag '%s' %s for %s\n",
+              command,
+              flag, action, adminname ) );
+  }
+  G_AdminMessage( ent, va( "admin flag '%s' %s for %s",
+                           flag, action,
+                           adminname ) );
+  admin_writeconfig( );
+  if( vic ) 
+    G_admin_authlog( vic );
   return qtrue;
 }
 
