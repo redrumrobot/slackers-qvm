@@ -176,6 +176,11 @@ g_admin_cmd_t g_admin_cmds[ ] =
       "[^5(^3a|h^7^5)NumBuilds^7 | ^3#^5BuildID^7 | ^3-^5skip^7] (^5name^7)"
     },
 
+    {"seen", G_admin_seen, "seen",
+      "find the last time a player was on the server",
+      "[^3name|admin#^7]"
+    },
+
     {"setlevel", G_admin_setlevel, "setlevel",
       "sets the admin level of a player",
       "[^3name|slot#|admin#^7] [^3level^7]"
@@ -188,7 +193,8 @@ g_admin_cmd_t g_admin_cmds[ ] =
 
     {"spec999", G_admin_spec999, "spec999",
       "move 999 pingers to the spectator team",
-      ""},
+      ""
+    },
 
     {"time", G_admin_time, "time",
       "show the current local server time",
@@ -484,7 +490,7 @@ static void admin_writeconfig_int( int v, fileHandle_t f )
 static void admin_writeconfig( void )
 {
   fileHandle_t f;
-  int t;
+  int t, expiretime;
   char levels[ MAX_STRING_CHARS ] = {""};
   g_admin_admin_t *a;
   g_admin_level_t *l;
@@ -520,6 +526,16 @@ static void admin_writeconfig( void )
     // don't write level 0 users
     if( a->level == 0 )
       continue;
+    
+    //if set dont write admins that havent been seen in a while
+    expiretime = G_admin_parse_time( g_adminExpireTime.string );
+    if( expiretime > 0 ) {
+      //only expire level 1 people
+      if( t - expiretime > a->seen && a->level == 1 ) {
+        G_Printf("Admin %s has been expired.\n", a->name );
+        continue;
+      }
+    }
 
     trap_FS_Write( "[admin]\n", 8, f );
     trap_FS_Write( "name    = ", 10, f );
@@ -530,6 +546,8 @@ static void admin_writeconfig( void )
     admin_writeconfig_int( a->level, f );
     trap_FS_Write( "flags   = ", 10, f );
     admin_writeconfig_string( a->flags, f );
+    trap_FS_Write( "seen    = ", 10, f );
+    admin_writeconfig_int( a->seen, f );
     trap_FS_Write( "\n", 1, f );
   }
   for( b = g_admin_bans; b; b = b->next )
@@ -1074,6 +1092,8 @@ void G_admin_namelog_update( gclient_t *client, qboolean disconnect )
   char n2[ MAX_NAME_LENGTH ];
   int clientNum = ( client - level.clients );
 
+  G_admin_seen_update( client->pers.guid );
+  
   G_SanitiseString( client->pers.netname, n1, sizeof( n1 ) );
   for( n = g_admin_namelogs; n; p = n, n = n->next )
   {
@@ -1301,6 +1321,10 @@ qboolean G_admin_readconfig( gentity_t *ent )
       else if( !Q_stricmp( t, "flags" ) )
       {
         admin_readconfig_string( &cnf, a->flags, sizeof( a->flags ) );
+      }
+      else if( !Q_stricmp( t, "seen" ) )
+      {
+        admin_readconfig_int( &cnf, &a->seen );
       }
       else
       {
@@ -3590,6 +3614,131 @@ qboolean G_admin_flag( gentity_t *ent )
     G_admin_authlog( vic );
   return qtrue;
 }
+
+qboolean G_admin_seen(gentity_t *ent )
+{
+  char name[ MAX_NAME_LENGTH ];
+  char search[ MAX_NAME_LENGTH ];
+  char sduration[ 32 ];
+  qboolean numeric = qtrue;
+  int i, j;
+  int id = -1;
+  int count = 0;
+  int t;
+  qtime_t qt;
+  g_admin_admin_t *a;
+  gentity_t *vic;
+  qboolean ison;
+
+  if( trap_Argc() < 2 )
+  {
+    ADMP( "^3!seen: ^7usage: !seen [name|admin#]\n" );
+    return qfalse;
+  }
+  
+  trap_Argv( 1, name, sizeof( name ) );
+  G_SanitiseString( name, search, sizeof( search ) );
+
+  for( i = 0; i < sizeof( search ) && search[ i ] ; i++ )
+  {
+    if( search[ i ] < '0' || search[ i ] > '9' )
+    {
+      numeric = qfalse;
+      break;
+    }
+  }
+
+  if( numeric )
+  {
+    id = atoi( name );
+    search[ 0 ] = '\0';
+  }
+
+  ADMBP_begin();
+  t = trap_RealTime( &qt );
+
+  for( i = 0; i < level.maxclients && count < 10; i ++ )
+  {
+    vic = &g_entities[ i ];
+
+    if( !vic->client || vic->client->pers.connected != CON_CONNECTED )
+      continue;
+
+    G_SanitiseString( vic->client->pers.netname, name, sizeof( name ) );
+
+    if( i == id || (search[ 0 ] && strstr( name, search ) ) )
+    {
+      ADMBP( va( "^3%4d ^7%s^7 is currently playing\n", i, vic->client->pers.netname ) );
+      count++;
+    }
+  }
+  
+  for( a = g_admin_admins; a && count < 10; a = a->next )
+  {
+    G_SanitiseString( a->name, name, strlen( name ) );
+    if( i + MAX_CLIENTS == id || (search[ 0 ] && strstr( name, search ) ) )
+    {
+      ison = qfalse;
+      for( j = 0; j < level.maxclients; j++ )
+      {
+        vic = &g_entities[ j ];
+        if( !vic->client || vic->client->pers.connected != CON_CONNECTED )
+          continue;
+        G_SanitiseString( vic->client->pers.netname, name, strlen( name ) );
+        if( !Q_stricmp( vic->client->pers.guid, a->guid )
+          && strstr( name, search ) )
+        {
+          ison = qtrue;
+          break;
+        }
+      }
+
+      if( ison )
+      {
+        if( id == -1 )
+          continue;
+        ADMBP( va( "^3%4d ^7%s^7 is currently playing\n",
+          i + MAX_CLIENTS, a->name ) );
+      }
+      else
+      {
+        G_admin_duration( t - a->seen,
+          sduration, sizeof( sduration ) );
+        ADMBP( va( "%4d %s^7 last seen %s%s\n",
+          i + MAX_CLIENTS, a->name ,
+          ( a->seen ) ? sduration : "",
+          ( a->seen ) ? " ago" : "time is unknown" ) );
+      }
+      count++;
+    }
+  }
+
+  if( search[ 0 ] )
+    ADMBP( va( "^3!seen:^7 found %d player%s matching '%s'\n",
+      count, (count == 1) ? "" : "s", search ) );
+  else if ( !count )
+    ADMBP( "^3!seen:^7 no one connectd by that slot number\n" );
+
+  ADMBP_end();
+  return qtrue;
+}
+
+void G_admin_seen_update( char *guid )
+{
+  g_admin_admin_t *a;
+
+  for( a = g_admin_admins; a; a = a->next )
+  {
+    if( !Q_stricmp( a->guid, guid ) )
+    {
+      qtime_t qt;
+
+      a->seen = trap_RealTime( &qt );
+      return;
+    }
+  }
+}
+
 
 /*
 ================
