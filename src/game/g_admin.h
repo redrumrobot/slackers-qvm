@@ -99,6 +99,7 @@ typedef struct g_admin_admin
   char name[ MAX_NAME_LENGTH ];
   int level;
   char flags[ MAX_ADMIN_FLAGS ];
+  int seen;
 }
 g_admin_admin_t;
 
@@ -148,6 +149,8 @@ qboolean G_admin_name_check( gentity_t *ent, char *name, char *err, int len );
 void G_admin_namelog_update( gclient_t *ent, qboolean disconnect );
 g_admin_admin_t *G_admin_admin( const char *guid );
 void G_admin_authlog( gentity_t *ent );
+int G_admin_parse_time( const char *time );
+void G_admin_seen_update( char *guid );
 
 // ! command functions
 qboolean G_admin_time( gentity_t *ent );
@@ -178,6 +181,7 @@ qboolean G_admin_namelog( gentity_t *ent );
 qboolean G_admin_lock( gentity_t *ent );
 qboolean G_admin_flaglist( gentity_t *ent );
 qboolean G_admin_flag( gentity_t *ent );
+qboolean G_admin_seen( gentity_t *ent );
 
 void G_admin_print( gentity_t *ent, char *m );
 void G_admin_buffer_print( gentity_t *ent, char *m );

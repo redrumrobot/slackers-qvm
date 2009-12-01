@@ -144,6 +144,8 @@ vmCvar_t  g_allowTeamOverlay;
 
 vmCvar_t  g_tag;
 
+vmCvar_t  g_adminExpireTime;
+
 static cvarTable_t   gameCvarTable[ ] =
 {
   // don't override the cheat state set by the system
@@ -269,7 +271,9 @@ static cvarTable_t   gameCvarTable[ ] =
   { &g_publicAdminMessages, "g_publicAdminMessages", "1", CVAR_ARCHIVE, 0, qfalse  },
   { &g_allowTeamOverlay, "g_allowTeamOverlay", "1", CVAR_ARCHIVE, 0, qtrue  },
 
-  { &g_tag, "g_tag", "main", CVAR_INIT, 0, qfalse }
+  { &g_tag, "g_tag", "main", CVAR_INIT, 0, qfalse },
+  
+  { &g_adminExpireTime, "g_adminExpireTime", "0", CVAR_ARCHIVE, 0, qfalse  }
 };
 
 static int gameCvarTableSize = sizeof( gameCvarTable ) / sizeof( gameCvarTable[ 0 ] );
@@ -691,6 +695,9 @@ void G_ShutdownGame( int restart )
     G_LogPrintf( "------------------------------------------------------------\n" );
     trap_FS_FCloseFile( level.logFile );
   }
+
+  // write admin.dat for !seen data
+  admin_writeconfig();
 
   // write all the client session data so we can get it back
   G_WriteSessionData( );

@@ -1173,6 +1173,8 @@ extern  vmCvar_t  g_specChat;
 extern  vmCvar_t  g_publicAdminMessages;
 extern  vmCvar_t  g_allowTeamOverlay;
 
+extern  vmCvar_t  g_adminExpireTime;
+
 void      trap_Print( const char *fmt );
 void      trap_Error( const char *fmt );
 int       trap_Milliseconds( void );
