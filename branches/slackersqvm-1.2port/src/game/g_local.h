@@ -333,6 +333,7 @@ typedef struct
   char                ip[ 40 ];
   qboolean            muted;
   qboolean            denyBuild;
+  int                 specExpires;          // level.time at which a player can join a team again after being forced into spectator
   char                voice[ MAX_VOICE_NAME_LEN ];
   qboolean            useUnlagged;  
   // keep track of other players' info for tinfo
@@ -1174,6 +1175,8 @@ extern  vmCvar_t  g_publicAdminMessages;
 extern  vmCvar_t  g_allowTeamOverlay;
 
 extern  vmCvar_t  g_adminExpireTime;
+
+extern  vmCvar_t  g_adminTempSpec;
 
 void      trap_Print( const char *fmt );
 void      trap_Error( const char *fmt );

@@ -153,7 +153,7 @@ g_admin_cmd_t g_admin_cmds[ ] =
 
     {"putteam", G_admin_putteam, "putteam",
       "move a player to a specified team",
-      "[^3name|slot#^7] [^3h|a|s^7]"
+      "[^3name|slot#^7] [^3h|a|s^7] (^3duration^7)"
     },
 
     {"readconfig", G_admin_readconfig, "readconfig",
@@ -2036,12 +2036,15 @@ qboolean G_admin_putteam( gentity_t *ent )
        err[ MAX_STRING_CHARS ];
   gentity_t *vic;
   team_t teamnum = TEAM_NONE;
+  char secs[ 7 ];
+  int seconds = 0;
+  qboolean useDuration = qfalse;
 
   trap_Argv( 1, name, sizeof( name ) );
   trap_Argv( 2, team, sizeof( team ) );
   if( trap_Argc() < 3 )
   {
-    ADMP( "^3putteam: ^7usage: putteam [name] [h|a|s]\n" );
+    ADMP( "^3putteam: ^7usage: putteam [name] [h|a|s] (duration)\n" );
     return qfalse;
   }
 
@@ -2064,13 +2067,31 @@ qboolean G_admin_putteam( gentity_t *ent )
     ADMP( va( "^3putteam: ^7unknown team %s\n", team ) );
     return qfalse;
   }
-  if( vic->client->pers.teamSelection == teamnum )
+  //duration code
+  if( trap_Argc() > 3 ) {
+    //can only lock players in spectator
+    if( teamnum != TEAM_NONE )
+    {
+      ADMP( "^3putteam: ^7You can only lock a player into the spectators team\n" );
+      return qfalse;
+    }
+    trap_Argv( 3, secs, sizeof( secs ) );
+    seconds = G_admin_parse_time( secs );
+    useDuration = qtrue;
+  }
+  if( vic->client->pers.teamSelection == teamnum && teamnum != TEAM_NONE ) {
+    ADMP( va( "^3!putteam: ^7%s ^7is already on the %s team\n", vic->client->pers.netname, BG_TeamName( teamnum ) ) );
     return qfalse;
+  }
+  if( useDuration == qtrue && seconds > 0 ) {
+    vic->client->pers.specExpires = level.time + ( seconds * 1000 );
+  }
   G_ChangeTeam( vic, teamnum );
 
-  AP( va( "print \"^3putteam: ^7%s^7 put %s^7 on to the %s team\n\"",
+  AP( va( "print \"^3putteam: ^7%s^7 put %s^7 on to the %s team%s\n\"",
           ( ent ) ? ent->client->pers.netname : "console",
-          vic->client->pers.netname, BG_TeamName( teamnum ) ) );
+          vic->client->pers.netname, BG_TeamName( teamnum ),
+	  ( seconds ) ? va( " for %i seconds", seconds ) : "" ) );
   return qtrue;
 }
 
