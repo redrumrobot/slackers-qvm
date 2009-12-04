@@ -646,6 +646,12 @@ void Cmd_Team_f( gentity_t *ent )
     G_TriggerMenu( ent - g_entities, MN_PLAYERLIMIT );
     return;
   }
+  
+  //lock to spectator code
+  if ( ent->client->pers.specExpires > level.time ) {
+    trap_SendServerCommand( ent-g_entities, "print \"you have been locked to spectator\n\"" );
+    return;
+  }
 
   // guard against build timer exploit
   if( oldteam != TEAM_NONE && ent->client->sess.spectatorState == SPECTATOR_NOT &&
@@ -1039,7 +1045,7 @@ void Cmd_CallVote_f( gentity_t *ent )
   }
 
   // kick, mute, unmute, denybuild, allowbuild
-  if( !Q_stricmp( vote, "kick" ) ||
+  if( !Q_stricmp( vote, "kick" ) || !Q_stricmp( vote, "spec" ) ||
       !Q_stricmp( vote, "mute" ) || !Q_stricmp( vote, "unmute" ) ||
       !Q_stricmp( vote, "denybuild" ) || !Q_stricmp( vote, "allowbuild" ) )
   {
@@ -1078,7 +1084,7 @@ void Cmd_CallVote_f( gentity_t *ent )
       return;
     }
 
-    if( !Q_stricmp( vote, "kick" ) || !Q_stricmp( vote, "mute" ) ||
+    if( !Q_stricmp( vote, "kick" ) || !Q_stricmp( vote, "spec" ) || !Q_stricmp( vote, "mute" ) ||
         !Q_stricmp( vote, "denybuild" ) )
     {
       if( G_admin_permission( g_entities + clientNum, ADMF_IMMUNITY ) )
@@ -1137,6 +1143,10 @@ void Cmd_CallVote_f( gentity_t *ent )
       Com_sprintf( level.voteDisplayString[ team ],
         sizeof( level.voteDisplayString[ team ] ),
         "Unmute player '%s'", name );
+    }
+    else if( !Q_stricmp( vote, "spec" ) ) {
+      Com_sprintf( level.voteString[ team ], sizeof( level.voteString ), "putteam %d s %s", clientNum, g_adminTempSpec.string );
+      Com_sprintf( level.voteDisplayString[ team ], sizeof( level.voteDisplayString ), "lock player \'%s^7\' to team spectator", name );
     }
     else if( !Q_stricmp( vote, "map_restart" ) )
     {
@@ -1219,7 +1229,7 @@ void Cmd_CallVote_f( gentity_t *ent )
     {
       trap_SendServerCommand( ent-g_entities, "print \"Invalid vote string\n\"" );
       trap_SendServerCommand( ent-g_entities, "print \"Valid vote commands are: "
-        "map, nextmap, map_restart, draw, sudden_death, kick, mute and unmute\n" );
+        "map, nextmap, map_restart, draw, sudden_death, kick, spec, mute and unmute\n" );
       return;
     }
   }

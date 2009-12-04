@@ -146,6 +146,8 @@ vmCvar_t  g_tag;
 
 vmCvar_t  g_adminExpireTime;
 
+vmCvar_t  g_adminTempSpec;
+
 static cvarTable_t   gameCvarTable[ ] =
 {
   // don't override the cheat state set by the system
@@ -273,7 +275,9 @@ static cvarTable_t   gameCvarTable[ ] =
 
   { &g_tag, "g_tag", "main", CVAR_INIT, 0, qfalse },
   
-  { &g_adminExpireTime, "g_adminExpireTime", "0", CVAR_ARCHIVE, 0, qfalse  }
+  { &g_adminExpireTime, "g_adminExpireTime", "0", CVAR_ARCHIVE, 0, qfalse  },
+  
+  { &g_adminTempSpec, "g_adminTempSpec", "2m", CVAR_ARCHIVE, 0, qfalse  }
 };
 
 static int gameCvarTableSize = sizeof( gameCvarTable ) / sizeof( gameCvarTable[ 0 ] );
