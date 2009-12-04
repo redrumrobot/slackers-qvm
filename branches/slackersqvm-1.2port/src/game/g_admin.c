@@ -133,7 +133,7 @@ g_admin_cmd_t g_admin_cmds[ ] =
 
     {"mute", G_admin_mute, "mute",
       "mute a player",
-      "[^3name|slot#^7]"
+      "[^3name|slot#^7] (^3duration^7)"
     },
 
     {"namelog", G_admin_namelog, "namelog",
@@ -2144,11 +2144,13 @@ qboolean G_admin_mute( gentity_t *ent )
   char name[ MAX_NAME_LENGTH ], err[ MAX_STRING_CHARS ];
   char command[ MAX_ADMIN_CMD_LEN ];
   gentity_t *vic;
+  char secs[ 7 ];
+  int seconds = 0;
 
   trap_Argv( 0, command, sizeof( command ) );
   if( trap_Argc() < 2 )
   {
-    ADMP( va( "^3%s: ^7usage: %s [name|slot#]\n", command, command ) );
+    ADMP( va( "^3%s: ^7usage: %s [name|slot#] (duration)\n", command, command ) );
     return qfalse;
   }
   trap_Argv( 1, name, sizeof( name ) );
@@ -2165,31 +2167,33 @@ qboolean G_admin_mute( gentity_t *ent )
     return qfalse;
   }
   vic = &g_entities[ pids[ 0 ] ];
-  if( vic->client->pers.muted == qtrue )
+  if( !Q_stricmp( command, "unmute" ) )
   {
-    if( !Q_stricmp( command, "mute" ) )
-    {
-      ADMP( "^3mute: ^7player is already muted\n" );
-      return qtrue;
-    }
-    vic->client->pers.muted = qfalse;
-    CPx( pids[ 0 ], "cp \"^1You have been unmuted\"" );
-    AP( va( "print \"^3unmute: ^7%s^7 has been unmuted by %s\n\"",
-            vic->client->pers.netname,
-            ( ent ) ? ent->client->pers.netname : "console" ) );
-  }
-  else
-  {
-    if( !Q_stricmp( command, "unmute" ) )
+    if( vic->client->pers.muted == qfalse )
     {
       ADMP( "^3unmute: ^7player is not currently muted\n" );
       return qtrue;
     }
+    vic->client->pers.muteExpires = 0;
+    vic->client->pers.muted = qfalse;
+    CPx( pids[ 0 ], "cp \"^1You have been unmuted\"" );
+    AP( va( "print \"^3unmute: ^7%s^7 has been unmuted by %s\n\"",
+        vic->client->pers.netname,
+        ( ent ) ? ent->client->pers.netname : "console" ) );
+  } else {
+    // Duration
+    if( trap_Argc() > 2 )
+    {
+      trap_Argv( 2, secs, sizeof( secs ) );
+      seconds = G_admin_parse_time( secs );
+      vic->client->pers.muteExpires = level.time + ( seconds * 1000 );
+    }
     vic->client->pers.muted = qtrue;
     CPx( pids[ 0 ], "cp \"^1You've been muted\"" );
-    AP( va( "print \"^3mute: ^7%s^7 has been muted by ^7%s\n\"",
-            vic->client->pers.netname,
-            ( ent ) ? ent->client->pers.netname : "console" ) );
+    AP( va( "print \"^3mute: ^7%s^7 has been muted by ^7%s%s\n\"",
+        vic->client->pers.netname,
+        ( ent ) ? ent->client->pers.netname : "console",
+          ( seconds ) ? va( " ^7for %i seconds", seconds ) : "" ) );
   }
   return qtrue;
 }

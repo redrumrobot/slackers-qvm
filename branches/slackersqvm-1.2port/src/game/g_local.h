@@ -332,6 +332,7 @@ typedef struct
   char                guid[ 33 ];
   char                ip[ 40 ];
   qboolean            muted;
+  int                 muteExpires;          // level.time at which a player can talk again after being muted
   qboolean            denyBuild;
   int                 specExpires;          // level.time at which a player can join a team again after being forced into spectator
   char                voice[ MAX_VOICE_NAME_LEN ];
@@ -717,6 +718,7 @@ void      Cmd_Test_f( gentity_t *ent );
 void      Cmd_AdminMessage_f( gentity_t *ent );
 int       G_FloodLimited( gentity_t *ent );
 void      G_ListCommands( gentity_t *ent );
+qboolean  G_IsMuted( gclient_t *client );
 
 //
 // g_physics.c
@@ -1177,6 +1179,7 @@ extern  vmCvar_t  g_allowTeamOverlay;
 extern  vmCvar_t  g_adminExpireTime;
 
 extern  vmCvar_t  g_adminTempSpec;
+extern  vmCvar_t  g_adminTempMute;
 
 void      trap_Print( const char *fmt );
 void      trap_Error( const char *fmt );
