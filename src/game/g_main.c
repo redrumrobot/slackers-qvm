@@ -147,6 +147,7 @@ vmCvar_t  g_tag;
 vmCvar_t  g_adminExpireTime;
 
 vmCvar_t  g_adminTempSpec;
+vmCvar_t  g_adminTempMute;
 
 static cvarTable_t   gameCvarTable[ ] =
 {
@@ -277,7 +278,8 @@ static cvarTable_t   gameCvarTable[ ] =
   
   { &g_adminExpireTime, "g_adminExpireTime", "0", CVAR_ARCHIVE, 0, qfalse  },
   
-  { &g_adminTempSpec, "g_adminTempSpec", "2m", CVAR_ARCHIVE, 0, qfalse  }
+  { &g_adminTempSpec, "g_adminTempSpec", "2m", CVAR_ARCHIVE, 0, qfalse  },
+  { &g_adminTempMute, "g_adminTempMute", "2m", CVAR_ARCHIVE, 0, qfalse  },
 };
 
 static int gameCvarTableSize = sizeof( gameCvarTable ) / sizeof( gameCvarTable[ 0 ] );

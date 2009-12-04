@@ -1116,7 +1116,7 @@ void Cmd_CallVote_f( gentity_t *ent )
   {
     if( !Q_stricmp( vote, "mute" ) )
     {
-      if( level.clients[ clientNum ].pers.muted )
+      if( G_IsMuted( &level.clients[ clientNum ] ) )
       {
         trap_SendServerCommand( ent-g_entities,
           va( "print \"%s: player is already muted\n\"", cmd ) );
@@ -1124,14 +1124,14 @@ void Cmd_CallVote_f( gentity_t *ent )
       }
 
       Com_sprintf( level.voteString[ team ], sizeof( level.voteString[ team ] ),
-        "mute %d", clientNum );
+        "mute %d %s", clientNum, g_adminTempMute.string );
       Com_sprintf( level.voteDisplayString[ team ],
         sizeof( level.voteDisplayString[ team ] ),
         "Mute player '%s'", name );
     }
     else if( !Q_stricmp( vote, "unmute" ) )
     {
-      if( !level.clients[ clientNum ].pers.muted )
+      if( !G_IsMuted( &level.clients[ clientNum ] ) )
       {
         trap_SendServerCommand( ent-g_entities,
           va( "print \"%s: player is not currently muted\n\"", cmd ) );
@@ -3077,7 +3077,7 @@ void ClientCommand( int clientNum )
     return;
   }
 
-  if( command->cmdFlags & CMD_MESSAGE && ( ent->client->pers.muted ||
+  if( command->cmdFlags & CMD_MESSAGE && ( G_IsMuted( ent->client ) ||
       G_FloodLimited( ent ) ) )
     return;
 
@@ -3261,3 +3261,28 @@ void Cmd_AdminMessage_f( gentity_t *ent )
   G_AdminMessage( ent, ConcatArgs( 1 ) );
 }
 
+/*
+=================
+G_IsMuted
+
+Check if a player is muted
+=================
+*/
+qboolean G_IsMuted( gclient_t *client )
+{
+  qboolean muteState = qfalse;
+
+  //check if mute has expired
+  if( client->pers.muteExpires ) {
+    if( client->pers.muteExpires < level.time )
+    {
+      client->pers.muted = qfalse;
+      client->pers.muteExpires = 0;
+    }
+  }
+
+  if( client->pers.muted )
+    muteState = qtrue;
+
+  return muteState;
+}

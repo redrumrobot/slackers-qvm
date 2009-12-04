@@ -1030,7 +1030,7 @@ void ClientUserinfoChanged( int clientNum )
          g_maxNameChanges.integer ) );
       revertName = qtrue;
     }
-    else if( client->pers.muted )
+    else if( G_IsMuted( client ) )
     {
       trap_SendServerCommand( ent - g_entities,
         "print \"You cannot change your name while you are muted\n\"" );
