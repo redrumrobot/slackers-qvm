@@ -39,6 +39,10 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define MAX_ADMIN_CMD_LEN 20
 #define MAX_ADMIN_BAN_REASON 50
 
+#define MAX_ADMIN_EXPIRED_BANS   64
+#define G_ADMIN_BAN_EXPIRED(b,t) ((b)->expires != 0 && (b)->expires <= (t))
+#define G_ADMIN_BAN_STALE(b,t)   ((b)->expires != 0 && (b)->expires + 86400 <= (t))
+
 /*
  * IMMUNITY - cannot be vote kicked, vote muted
  * NOCENSORFLOOD - cannot be censored or flood protected
@@ -113,6 +117,7 @@ typedef struct g_admin_ban
   char made[ 18 ]; // big enough for strftime() %c
   int expires;
   char banner[ MAX_NAME_LENGTH ];
+  int id;
 }
 g_admin_ban_t;
 

@@ -552,9 +552,8 @@ static void admin_writeconfig( void )
   }
   for( b = g_admin_bans; b; b = b->next )
   {
-    // don't write expired bans
-    // if expires is 0, then it's a perm ban
-    if( b->expires != 0 && b->expires <= t )
+    // don't write stale bans
+    if( G_ADMIN_BAN_STALE( b, t ) )
       continue;
 
     trap_FS_Write( "[ban]\n", 6, f );
@@ -993,8 +992,7 @@ qboolean G_admin_ban_check( gentity_t *ent, char *reason, int rlen )
     return qfalse;
   for( ban = g_admin_bans, i = 0; ban; ban = ban->next, i++ )
   {
-    // 0 is for perm ban
-    if( ban->expires != 0 && ban->expires <= t )
+    if( G_ADMIN_BAN_EXPIRED( ban, t) )
       continue;
     
     if( !Q_stricmp( ban->guid, ent->client->pers.guid ) ||
@@ -1270,6 +1268,7 @@ qboolean G_admin_readconfig( gentity_t *ent )
       ban_open = qtrue;
       level_open = admin_open = command_open = qfalse;
       bc++;
+      b->id = bc;
     }
     else if( !Q_stricmp( t, "[command]" ) )
     {
@@ -1502,31 +1501,62 @@ static qboolean admin_create_ban( gentity_t *ent,
   int seconds,
   char *reason )
 {
-  g_admin_ban_t *b = NULL;
+  g_admin_ban_t *b;
+  g_admin_ban_t *prev = NULL;
   qtime_t       qt;
   int           t;
   int           i;
   char          *name;
+  int           expired = 0;
+  int           id = 0;
 
   t = trap_RealTime( &qt );
 
   for( b = g_admin_bans; b; b = b->next )
   {
-    if( b->expires != 0 && b->expires <= t )
-      break;
+    if( b->id > id )
+      id = b->id;
 
-    if( !b->next )
-      break;
+    if( G_ADMIN_BAN_EXPIRED( b, t ) &&
+        !G_ADMIN_BAN_STALE( b, t ) )
+      expired++;
   }
+
+  // free stale bans
+  for( b = g_admin_bans; b; b = b->next )
+  {
+    if ( G_ADMIN_BAN_EXPIRED( b, t ) &&
+         ( expired >= MAX_ADMIN_EXPIRED_BANS || G_ADMIN_BAN_STALE( b, t ) ) )
+    {
+      g_admin_ban_t *u = b;
+
+      if( prev )
+      {
+        prev->next = b->next;
+        b = prev;
+      }
+      else
+      {
+        g_admin_bans = b->next;
+        b = g_admin_bans;
+      }
+
+      if( !G_ADMIN_BAN_STALE( u, t ) )
+        expired--;
+      BG_Free( u );
+    }
+    else
+      prev = b;
+  }
+
+  for( b = g_admin_bans; b && b->next; b = b->next );
 
   if( b )
-  {
-    if( !b->next )
-      b = b->next = BG_Alloc( sizeof( g_admin_ban_t ) );
-  }
+    b = b->next = BG_Alloc( sizeof( g_admin_ban_t ) );
   else
     b = g_admin_bans = BG_Alloc( sizeof( g_admin_ban_t ) );
 
+  b->id = id + 1;
   Q_strncpyz( b->name, netname, sizeof( b->name ) );
   Q_strncpyz( b->guid, guid, sizeof( b->guid ) );
   Q_strncpyz( b->ip, ip, sizeof( b->ip ) );
@@ -1847,11 +1877,10 @@ qboolean G_admin_ban( gentity_t *ent )
 
 qboolean G_admin_unban( gentity_t *ent )
 {
-  int bnum;
+  int id;
   int time = trap_RealTime( NULL );
   char bs[ 5 ];
-  int i;
-  g_admin_ban_t *ban, *p;
+  g_admin_ban_t *ban;
 
   if( trap_Argc() < 2 )
   {
@@ -1859,10 +1888,9 @@ qboolean G_admin_unban( gentity_t *ent )
     return qfalse;
   }
   trap_Argv( 1, bs, sizeof( bs ) );
-  bnum = atoi( bs );
-  for( ban = p = g_admin_bans, i = 1; ban && i < bnum;
-       p = ban, ban = ban->next, i++ );
-  if( i != bnum || !ban )
+  id = atoi( bs );
+  for( ban = g_admin_bans; ban && ban->id != id; ban = ban->next );
+  if( !ban )
   {
     ADMP( "^3unban: ^7invalid ban#\n" );
     return qfalse;
@@ -1875,21 +1903,17 @@ qboolean G_admin_unban( gentity_t *ent )
     return qfalse;
   }
   AP( va( "print \"^3unban: ^7ban #%d for %s^7 has been removed by %s\n\"",
-          bnum,
+          id,
           ban->name,
           ( ent ) ? ent->client->pers.netname : "console" ) );
-  if( p == ban )
-    g_admin_bans = ban->next;
-  else
-    p->next = ban->next;
-  BG_Free( ban );
+  ban->expires = time;
   admin_writeconfig();
   return qtrue;
 }
 
 qboolean G_admin_adjustban( gentity_t *ent )
 {
-  int bnum;
+  int id;
   int length, maximum;
   int expires;
   int time = trap_RealTime( NULL );
@@ -1900,7 +1924,6 @@ qboolean G_admin_adjustban( gentity_t *ent )
   char mode = '\0';
   g_admin_ban_t *ban;
   int mask = 0;
-  int i;
   int skiparg = 0;
 
   if( trap_Argc() < 3 )
@@ -1910,9 +1933,9 @@ qboolean G_admin_adjustban( gentity_t *ent )
     return qfalse;
   }
   trap_Argv( 1, bs, sizeof( bs ) );
-  bnum = atoi( bs );
-  for( ban = g_admin_bans, i = 1; ban && i < bnum; ban = ban->next, i++ );
-  if( i != bnum || !ban )
+  id = atoi( bs );
+  for( ban = g_admin_bans; ban && ban->id != id; ban = ban->next )
+  if( !ban )
   {
     ADMP( "^3adjustban: ^7invalid ban#\n" );
     return qfalse;
@@ -1989,7 +2012,7 @@ qboolean G_admin_adjustban( gentity_t *ent )
     Q_strncpyz( ban->reason, reason, sizeof( ban->reason ) );
   AP( va( "print \"^3adjustban: ^7ban #%d for %s^7 has been updated by %s^7 "
     "%s%s%s%s%s%s\n\"",
-    bnum,
+    id,
     ban->name,
     ( ent ) ? ent->client->pers.netname : "console",
     ( mask ) ?
@@ -2685,17 +2708,14 @@ qboolean G_admin_showbans( gentity_t *ent )
   addr_t ipa, ipb;
   int neta, netb;
   char name_match[ MAX_NAME_LENGTH ] = {""};
-  g_admin_ban_t *ban, *p = NULL;
+  g_admin_ban_t *ban, *ban_start;
+  char line_color;
 
   t = trap_RealTime( NULL );
 
-  for( ban = g_admin_bans; ban; p = ban, ban = ban->next )
-  {
-    if( ban->expires != 0 && ban->expires <= t )
-      continue;
-
-    found++;
-  }
+  for( ban = g_admin_bans; ban && ban->next; ban = ban->next );
+  if( ban )
+    found = ban->id;
 
   if( !found )
   {
@@ -2720,14 +2740,13 @@ qboolean G_admin_showbans( gentity_t *ent )
       else
         start = atoi( filter );
     }
-    // showbans 1 means start with ban 0
-    if( start > 0 )
-      start--;
-    else if( start < 0 )
-      start = found + start;
-    else
+    if( start < 0 )
+      start = found + start + 1;
+    else if( !start )
       ipmatch = G_AddressParse( filter, &ipa, &neta );
   }
+  else
+    start = 1;
 
   if( start > found )
   {
@@ -2735,12 +2754,10 @@ qboolean G_admin_showbans( gentity_t *ent )
     return qfalse;
   }
 
-  for( i = 0, ban = g_admin_bans; i < start && ban; i++, ban = ban->next );
-  for( count = 0; count < MAX_ADMIN_SHOWBANS && ban; ban = ban->next )
+  for( ban = g_admin_bans; ban && ban->id < start; ban = ban->next );
+  ban_start = ban;
+  for( count = 0, i = start; count < MAX_ADMIN_SHOWBANS && ban; ban = ban->next, i++ )
   {
-    if( ban->expires != 0 && ban->expires <= t )
-      continue;
-
     if( ipmatch )
     {
       if( !G_AddressParse( ban->ip, &ipb, &netb ) )
@@ -2754,6 +2771,16 @@ qboolean G_admin_showbans( gentity_t *ent )
       G_SanitiseString( ban->name, n1, sizeof( n1 ) );
       if( !strstr( n1, name_match) )
         continue;
+    }
+    else
+    {
+      while( i < ban->id && count < MAX_ADMIN_SHOWBANS )
+      {
+        count++;
+        i++;
+      }
+      if( count == MAX_ADMIN_SHOWBANS )
+        break;
     }
 
     count++;
@@ -2768,12 +2795,9 @@ qboolean G_admin_showbans( gentity_t *ent )
   }
 
   ADMBP_begin();
-  for( i = 0, ban = g_admin_bans; i < start && ban; i++, ban = ban->next );
-  for( count = 0; count < MAX_ADMIN_SHOWBANS && ban; ban = ban->next )
+  ban = ban_start;
+  for( count = 0, i = start; count < MAX_ADMIN_SHOWBANS && ban; ban = ban->next, i++ )
   {
-    if( ban->expires != 0 && ban->expires <= t )
-      continue;
-
     if( ipmatch )
     {
       if( !G_AddressParse( ban->ip, &ipb, &netb ) )
@@ -2788,6 +2812,17 @@ qboolean G_admin_showbans( gentity_t *ent )
       if( !strstr( n1, name_match) )
         continue;
     }
+    else
+    {
+      while( i < ban->id && count < MAX_ADMIN_SHOWBANS )
+      {
+        ADMBP( va( "^0%4i -- deleted --\n", i ) );
+        count++;
+        i++;
+      }
+      if( count == MAX_ADMIN_SHOWBANS )
+        break;
+    }
 
     count++;
 
@@ -2798,8 +2833,20 @@ qboolean G_admin_showbans( gentity_t *ent )
       date[ j ] = *made++;
     date[ j ] = 0;
 
-    secs = ban->expires - t;
-    G_admin_duration( secs, duration, sizeof( duration ) );
+    if( !G_ADMIN_BAN_EXPIRED( ban, t) )
+    {
+      secs = ban->expires - t;
+      G_admin_duration( secs, duration, sizeof( duration ) );
+      if( strchr( ban->ip, '/' ) )
+        line_color = COLOR_RED;
+      else
+        line_color = COLOR_WHITE;
+    }
+    else
+    {
+      Q_strncpyz( duration, "expired", sizeof( duration ) );
+      line_color = COLOR_BLACK;
+    }
 
     for( colorlen1 = j = 0; ban->name[ j ]; j++ )
     {
@@ -2815,15 +2862,19 @@ qboolean G_admin_showbans( gentity_t *ent )
     }
 
 
-    ADMBP( va( "%4i %*s^7 %-15s %-8s %*s^7 %-10s\n     \\__ %s\n",
-             ( count + start ),
+    ADMBP( va( "^%c%4i ^7%*s^%c %-15s %-8s ^7%*s^%c %-10s\n     ^%c\\__ %s\n",
+             line_color,
+             ban->id,
              max_name + colorlen1,
              ban->name,
+             line_color,
              ban->ip,
              date,
              max_banner + colorlen2,
              ban->banner,
+             line_color,
              duration,
+             line_color,
              ban->reason ) );
   }
 
@@ -2836,14 +2887,14 @@ qboolean G_admin_showbans( gentity_t *ent )
   else
   {
     ADMBP( va( "^3showbans:^7 showing bans %d - %d of %d.",
-             ( found ) ? ( start + 1 ) : 0,
-             start + count,
+             ( found ) ? ( start ) : 0,
+             start + count - 1,
              found ) );
   }
 
   if( count + start < found )
     ADMBP( va( "  run showbans %d%s%s to see more",
-             start + count + 1,
+             start + count,
              ( name_match[ 0 ] ) ? " " : "",
              ( name_match[ 0 ] ) ? filter : "" ) );
   ADMBP( "\n" );
