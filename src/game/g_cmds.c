@@ -648,8 +648,8 @@ void Cmd_Team_f( gentity_t *ent )
   }
   
   //lock to spectator code
-  if ( ent->client->pers.specExpires > level.time ) {
-    trap_SendServerCommand( ent-g_entities, "print \"you have been locked to spectator\n\"" );
+  if( ent->client->pers.specExpires > level.time ) {
+    trap_SendServerCommand( ent-g_entities, va( "print \"you have been locked to spectator. Expires in %d seconds.\n\"", ( ( ent->client->pers.specExpires - level.time ) / 1000 ) ) );
     return;
   }
 
