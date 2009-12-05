@@ -161,6 +161,12 @@ g_admin_cmd_t g_admin_cmds[ ] =
       ""
     },
 
+    {"register", G_admin_register, "register",
+      "register your name to protect it from being used by others. "
+      "use 'register 0' to remove name protection.",
+      "(^5level^7)"
+    },
+
     {"rename", G_admin_rename, "rename",
       "rename a player",
       "[^3name|slot#^7] [^3new name^7]"
@@ -1138,6 +1144,11 @@ void G_admin_namelog_update( gclient_t *client, qboolean disconnect )
 
       n->slot = ( disconnect ) ? -1 : clientNum;
 
+      if( disconnect )
+        n->newbieNumber = client->pers.newbieNumber;
+      else
+        client->pers.newbieNumber = n->newbieNumber;
+
       // if this player is connecting, they are no longer banned
       if( !disconnect )
         n->banned = qfalse;
@@ -1192,6 +1203,7 @@ void G_admin_namelog_update( gclient_t *client, qboolean disconnect )
   Q_strncpyz( n->ip[ 0 ], client->pers.ip, sizeof( n->ip[ 0 ] ) );
   Q_strncpyz( n->guid, client->pers.guid, sizeof( n->guid ) );
   Q_strncpyz( n->name[ 0 ], client->pers.netname, sizeof( n->name[ 0 ] ) );
+  n->newbieNumber = client->pers.newbieNumber;
   n->slot = ( disconnect ) ? -1 : clientNum;
   if( p )
     p->next = n;
@@ -1247,6 +1259,20 @@ static const char *G_admin_namelog_find_guid( char *name )
     }
   }
   return guid;
+}
+
+int G_admin_namelog_newbie_number( const char *guid )
+{
+  g_admin_namelog_t *n;
+
+  if( !guid )
+    return 0;
+  for( n = g_admin_namelogs; n; n = n->next )
+  {
+    if( !Q_stricmp( guid, n->guid ) )
+      return n->newbieNumber;
+  }
+  return 0;
 }
 
 qboolean G_admin_readconfig( gentity_t *ent )
@@ -1552,6 +1578,60 @@ qboolean G_admin_setlevel( gentity_t *ent )
     G_admin_authlog( vic );
     G_admin_cmdlist( vic );
   }
+  return qtrue;
+}
+
+qboolean G_admin_register( gentity_t *ent )
+{
+  char arg[ 16 ];
+  int  oldLevel;
+  int  newLevel = 1;
+
+  if( !ent )
+    return qfalse;
+
+  if( ent->client->pers.admin )
+    oldLevel = ent->client->pers.admin->level;
+  else
+    oldLevel = 0;
+
+  if( trap_Argc( ) > 1 )
+  {
+    trap_Argv( 1, arg, sizeof( arg ) );
+    newLevel = atoi( arg );
+
+    if( newLevel < 0 || newLevel > 1 )
+    {
+      ADMP( "^3register: ^7level can only be 0 or 1\n" );
+      return qfalse;
+    }
+
+    if( newLevel == 0 && oldLevel != 1 )
+    {
+      ADMP( "^3register: ^7you may only remove name protection when level 1. "
+            "find an admin with setlevel\n");
+      return qfalse;
+    }
+  }
+
+  if( newLevel != 0 && G_IsNewbieName( ent->client->pers.netname ) )
+  {
+    ADMP( va( "^3register: ^7You cannot register names similar to '%s^7' or 'UnnamedPlayer'\n",
+              g_newbieNamePrefix.string ) );
+    return qfalse;
+  }
+
+  if( oldLevel < 0 || oldLevel > 1 )
+    newLevel = oldLevel;
+
+  trap_SendConsoleCommand( EXEC_APPEND,
+    va( "setlevel %d %d;", ent - g_entities, newLevel ) );
+
+  AP( va( "print \"^3register: ^7%s^7 is now a %s nickname\n\"",
+          ( newLevel == 0 && ent->client->pers.admin ) ?
+            ent->client->pers.admin->name : ent->client->pers.netname,
+          newLevel == 0 ? "free" : "protected" ) );
+
   return qtrue;
 }
 
