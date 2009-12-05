@@ -335,6 +335,7 @@ typedef struct
   int                 muteExpires;          // level.time at which a player can talk again after being muted
   qboolean            denyBuild;
   int                 specExpires;          // level.time at which a player can join a team again after being forced into spectator
+  int                 newbieNumber;
   char                voice[ MAX_VOICE_NAME_LEN ];
   qboolean            useUnlagged;  
   // keep track of other players' info for tinfo
@@ -968,6 +969,7 @@ void      BeginIntermission( void );
 void      ClientSpawn( gentity_t *ent, gentity_t *spawn, vec3_t origin, vec3_t angles );
 void      player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int damage, int mod );
 qboolean  SpotWouldTelefrag( gentity_t *spot );
+qboolean  G_IsNewbieName( const char *name );
 
 //
 // g_svcmds.c
@@ -1164,6 +1166,8 @@ extern  vmCvar_t  g_layouts;
 extern  vmCvar_t  g_layoutAuto;
 
 extern  vmCvar_t  g_emoticonsAllowedInNames;
+extern  vmCvar_t  g_newbieNameNumbering;
+extern  vmCvar_t  g_newbieNamePrefix;
 
 extern  vmCvar_t  g_admin;
 extern  vmCvar_t  g_adminTempBan;

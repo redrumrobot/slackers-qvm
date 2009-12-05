@@ -140,6 +140,7 @@ typedef struct g_admin_namelog
   char      ip[ MAX_ADMIN_NAMELOG_ADDRS ][ 40 ];
   char      guid[ 33 ];
   int       slot;
+  int       newbieNumber;
   qboolean  banned;
   qboolean  muted;
   int       muteExpires;
@@ -158,6 +159,7 @@ qboolean G_admin_readconfig( gentity_t *ent );
 qboolean G_admin_permission( gentity_t *ent, const char *flag );
 qboolean G_admin_name_check( gentity_t *ent, char *name, char *err, int len );
 void G_admin_namelog_update( gclient_t *ent, qboolean disconnect );
+int G_admin_namelog_newbie_number( const char *guid );
 g_admin_admin_t *G_admin_admin( const char *guid );
 void G_admin_authlog( gentity_t *ent );
 int G_admin_parse_time( const char *time );
@@ -166,6 +168,7 @@ void G_admin_seen_update( char *guid );
 // ! command functions
 qboolean G_admin_time( gentity_t *ent );
 qboolean G_admin_setlevel( gentity_t *ent );
+qboolean G_admin_register( gentity_t *ent );
 qboolean G_admin_kick( gentity_t *ent );
 qboolean G_admin_adjustban( gentity_t *ent );
 qboolean G_admin_ban( gentity_t *ent );
