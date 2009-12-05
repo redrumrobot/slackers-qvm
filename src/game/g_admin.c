@@ -1128,6 +1128,49 @@ void G_admin_namelog_update( gclient_t *client, qboolean disconnect )
       if( !disconnect )
         n->banned = qfalse;
 
+      //check other things like if user was denybuild or muted and restore them
+      if( !disconnect )
+      {
+        if( n->muted )
+        {
+          client->pers.muted = qtrue;
+          client->pers.muteExpires = n->muteExpires;
+          AP( va( "print \"^7%s^7's mute has been restored.\n\"", client->pers.netname ) );
+          n->muted = qfalse;
+        }
+        if( n->denyBuild )
+        {
+          client->pers.denyBuild = qtrue;
+          AP( va( "print \"^7%s^7's Denybuild status has been restored.\n\"", client->pers.netname ) );
+          n->denyBuild = qfalse;
+        }
+        if( n->specExpires > 0 )
+        {
+          client->pers.specExpires = n->specExpires;
+          AP( va( "print \"^7%s^7's Putteam spectator has been restored.\n\"", client->pers.netname ) );
+          n->specExpires = 0;
+        }
+      }
+      else
+      {
+        //mute
+        if( G_IsMuted( client ) )
+        {
+          n->muted = qtrue;
+          n->muteExpires = client->pers.muteExpires;
+        }
+        //denybuild
+        if( client->pers.denyBuild )
+        {
+          n->denyBuild = qtrue;
+        }
+        //putteam spec
+        if( client->pers.specExpires > 0 )
+        {
+          n->specExpires = client->pers.specExpires;
+        }
+      }
+
       return;
     }
   }
