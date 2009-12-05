@@ -1827,7 +1827,7 @@ TOOLSOBJ = $(LBURGOBJ) $(Q3CPPOBJ) $(Q3RCCOBJ) $(Q3LCCOBJ) $(Q3ASMOBJ)
 
 
 clean: clean-debug clean-release
-	@$(MAKE) -C $(MASTERDIR) clean
+	@echo "cleaned"
 
 clean-debug:
 	@$(MAKE) clean2 B=$(BD)
