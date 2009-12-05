@@ -195,6 +195,13 @@ g_admin_cmd_t g_admin_cmds[ ] =
       "move 999 pingers to the spectator team",
       ""
     },
+    
+    {"suspendban", G_admin_suspendban, "ban",
+      "suspend a ban for a length of time. time is specified as numbers "
+      "followed by units 'w' (weeks), 'd' (days), 'h' (hours) or 'm' (minutes),"
+      " or seconds if no units are specified",
+      "[^5ban #^7] [^5length^7]"
+    },
 
     {"time", G_admin_time, "time",
       "show the current local server time",
@@ -569,6 +576,10 @@ static void admin_writeconfig( void )
     admin_writeconfig_string( b->made, f );
     trap_FS_Write( "expires = ", 10, f );
     admin_writeconfig_int( b->expires, f );
+    if( b->suspend > t ) {
+      trap_FS_Write( "suspend = ", 10, f );
+      admin_writeconfig_int( b->suspend, f );
+    }
     trap_FS_Write( "banner  = ", 10, f );
     admin_writeconfig_string( b->banner, f );
     trap_FS_Write( "\n", 1, f );
@@ -995,6 +1006,9 @@ qboolean G_admin_ban_check( gentity_t *ent, char *reason, int rlen )
     if( G_ADMIN_BAN_EXPIRED( ban, t) )
       continue;
     
+    if( ban->suspend >= t )
+      continue;
+
     if( !Q_stricmp( ban->guid, ent->client->pers.guid ) ||
       ( !G_admin_permission( ent, ADMF_IMMUNITY ) &&
         G_AddressParse( ban->ip, &test, &mask ) &&
@@ -1400,6 +1414,10 @@ qboolean G_admin_readconfig( gentity_t *ent )
       {
         admin_readconfig_int( &cnf, &b->expires );
       }
+      else if( !Q_stricmp( t, "suspend" ) )
+      {
+        admin_readconfig_int( &cnf, &b->suspend );
+      }
       else if( !Q_stricmp( t, "banner" ) )
       {
         admin_readconfig_string( &cnf, b->banner, sizeof( b->banner ) );
@@ -1603,6 +1621,7 @@ static qboolean admin_create_ban( gentity_t *ent,
   Q_strncpyz( b->name, netname, sizeof( b->name ) );
   Q_strncpyz( b->guid, guid, sizeof( b->guid ) );
   Q_strncpyz( b->ip, ip, sizeof( b->ip ) );
+  b->suspend = 0;
 
   Com_sprintf( b->made, sizeof( b->made ), "%02i/%02i/%02i %02i:%02i:%02i",
     qt.tm_mon + 1, qt.tm_mday, qt.tm_year % 100,
@@ -1915,6 +1934,84 @@ qboolean G_admin_ban( gentity_t *ent )
   else
     admin_writeconfig();
 
+  return qtrue;
+}
+
+qboolean G_admin_suspendban( gentity_t *ent )
+{
+  int bnum;
+  int length;
+  int timenow = 0;
+  int suspendtime = 0;
+  char secs[ MAX_TOKEN_CHARS ];
+  char bs[ 5 ];
+  g_admin_ban_t *ban;
+  char duration[ 32 ];
+  qtime_t qt;
+
+  if( trap_Argc() < 3 )
+  {
+    ADMP( "^3suspendban: ^7usage: suspendban [ban #] [length]\n" );
+    return qfalse;
+  }
+  trap_Argv( 1, bs, sizeof( bs ) );
+
+  bnum = atoi( bs );
+  for( ban = g_admin_bans; ban && ban->id != bnum; ban = ban->next );
+  if( !ban )
+  {
+    ADMP( "^3suspendban: ^7invalid ban #\n" );
+    return qfalse;
+  }
+
+  trap_Argv( 2, secs, sizeof( secs ) );
+  length = G_admin_parse_time( secs );
+  timenow = trap_RealTime( &qt );
+  
+  if( length < 0 )
+  {
+    ADMP( "^3suspendban: ^7invalid length\n" );
+    return qfalse;
+  }
+  if( length > MAX_ADMIN_BANSUSPEND_DAYS * 24 * 60 * 60 )
+  {
+    length = MAX_ADMIN_BANSUSPEND_DAYS * 24 * 60 * 60;
+    ADMP( va( "^3suspendban: ^7maximum ban suspension is %d days\n",
+      MAX_ADMIN_BANSUSPEND_DAYS ) );
+  } else if( ban->expires > 0 && length + timenow > ban->expires ) {
+    length = ban->expires - timenow;
+    G_admin_duration( length , duration, sizeof( duration ) );
+    ADMP( va( "^3suspendban: ^7Suspension Duration trimmed to Ban duration: %s\n",
+           duration ) );
+  }
+  
+  if ( length > 0 )
+  {
+    suspendtime = timenow + length;
+  }
+  if( ban->suspend == suspendtime )
+  {
+    ADMP( "^3suspendban: ^7no change\n" );
+    return qfalse;
+  }
+
+  ban->suspend = suspendtime;
+  if ( length > 0 )
+  {
+    G_admin_duration( length , duration, sizeof( duration ) );
+    AP( va( "print \"^3suspendban: ^7ban #%d suspended for %s\n\"",
+      bnum, duration ) );
+  }
+  else
+  {
+    AP( va( "print \"^3suspendban: ^7ban #%d suspension removed\n\"",
+      bnum ) );
+  }
+
+  if( !g_admin.string[ 0 ] )
+    ADMP( "^3suspendban: ^7WARNING g_admin not set, not saving ban to a file\n" );
+  else
+    admin_writeconfig();
   return qtrue;
 }
 
@@ -2763,6 +2860,8 @@ qboolean G_admin_showbans( gentity_t *ent )
   int count;
   int t;
   char duration[ 13 ];
+  char sduration[ 32 ];
+  char suspended[ 64 ];
   int max_name = 1, max_banner = 1;
   int colorlen1, colorlen2;
   int len;
@@ -2915,7 +3014,17 @@ qboolean G_admin_showbans( gentity_t *ent )
       Q_strncpyz( duration, "expired", sizeof( duration ) );
       line_color = COLOR_BLACK;
     }
-
+    
+    if( !G_ADMIN_BAN_EXPIRED( ban, t ) && ban->suspend > t )
+    {
+      G_admin_duration( ban->suspend - t, sduration, sizeof( sduration ) );
+      Com_sprintf( suspended, sizeof( suspended ), "     |-- ^3SUSPENDED^7 for %s\n", sduration );
+    }
+    else
+    {
+      Q_strncpyz( suspended, "", sizeof( suspended ) );
+    }
+    
     for( colorlen1 = j = 0; ban->name[ j ]; j++ )
     {
       if( Q_IsColorString( &ban->name[ j ] ) )
@@ -2930,7 +3039,7 @@ qboolean G_admin_showbans( gentity_t *ent )
     }
 
 
-    ADMBP( va( "^%c%4i ^7%*s^%c %-15s %-8s ^7%*s^%c %-10s\n     ^%c\\__ %s\n",
+    ADMBP( va( "^%c%4i ^7%*s^%c %-15s %-8s ^7%*s^%c %-10s\n^%c%s     ^%c\\__ %s\n",
              line_color,
              ban->id,
              max_name + colorlen1,
@@ -2942,6 +3051,8 @@ qboolean G_admin_showbans( gentity_t *ent )
              ban->banner,
              line_color,
              duration,
+             line_color,
+             suspended,
              line_color,
              ban->reason ) );
   }
