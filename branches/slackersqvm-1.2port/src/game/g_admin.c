@@ -1116,8 +1116,6 @@ void G_admin_adminlog_log( gentity_t *ent, char *command, char *args, qboolean s
 {
   g_admin_adminlog_t *adminlog;
   int id = 0;
-  int x;
-  char tmpargs[ MAX_STRING_CHARS ];
   
   //make sure if this is something we log
   if( !command )
@@ -1157,15 +1155,8 @@ void G_admin_adminlog_log( gentity_t *ent, char *command, char *args, qboolean s
     Q_strncpyz( adminlog->command, command, sizeof( adminlog->command ) );
   if( args )
     Q_strncpyz( adminlog->args, args, sizeof( adminlog->args ) );
-  else {
-    //TODO: Replace this when trap_args is fixed
-    if( trap_Argc() > 1 ) {
-      for( x = 1; x < trap_Argc(); x++ ) {
-        trap_Argv( x, tmpargs, sizeof( tmpargs ) );
-        Q_strcat( adminlog->args, sizeof( adminlog->args ), va( "%s ", tmpargs ) );
-      }
-    }
-  }
+  else
+    Q_strncpyz( adminlog->args, ConcatArgs( 1 ), sizeof( adminlog->args ) );
 
   if( ent && ent->client->pers.admin ) {
     Q_strncpyz( adminlog->name, ent->client->pers.admin->name, sizeof( adminlog->name ) );
