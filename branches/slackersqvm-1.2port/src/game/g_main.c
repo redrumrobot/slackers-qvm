@@ -714,6 +714,7 @@ void G_ShutdownGame( int restart )
 
   G_admin_cleanup( );
   G_admin_namelog_cleanup( );
+  G_admin_adminlog_cleanup( );
   G_UnregisterCommands( );
 
   G_ShutdownMapRotations( );
@@ -2168,6 +2169,8 @@ void G_CheckVote( team_t team )
   else
     G_TeamCommand( team, msg );
 
+  G_admin_adminlog_log( NULL, team == TEAM_NONE ? "CallVote" : "CallTeamVote", va( "%sed (%d - %d)", pass ? "pass" : "fail", level.voteYes[ team ], level.voteNo[ team ] ), pass ? qtrue : qfalse );
+  
   level.voteTime[ team ] = 0;
   level.voteYes[ team ] = 0;
   level.voteNo[ team ] = 0;
