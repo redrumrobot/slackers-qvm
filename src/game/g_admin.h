@@ -31,6 +31,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define ADMBP_begin() G_admin_buffer_begin()
 #define ADMBP_end() G_admin_buffer_end(ent)
 
+#define MAX_ADMIN_ADMINLOG_ARGS 50
 #define MAX_ADMIN_NAMELOG_NAMES 5
 #define MAX_ADMIN_NAMELOG_ADDRS 5
 #define MAX_ADMIN_FLAG_LEN 20
@@ -75,6 +76,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #define MAX_ADMIN_LISTITEMS 20
 #define MAX_ADMIN_SHOWBANS 10
+#define MAX_ADMIN_SHOWADMINLOGS 10
 
 // important note: QVM does not seem to allow a single char to be a
 // member of a struct at init time.  flag has been converted to char*
@@ -133,6 +135,19 @@ typedef struct g_admin_command
 }
 g_admin_command_t;
 
+typedef struct g_admin_adminlog
+{
+  struct g_admin_adminlog *next;
+  char      name[ MAX_NAME_LENGTH ];
+  char      command[ MAX_ADMIN_CMD_LEN ];
+  char      args[ MAX_ADMIN_ADMINLOG_ARGS ];
+  int       id;
+  int       time;
+  int       level;
+  qboolean  success;
+}
+g_admin_adminlog_t;
+
 typedef struct g_admin_namelog
 {
   struct g_admin_namelog *next;
@@ -158,6 +173,7 @@ qboolean G_admin_cmd_check( gentity_t *ent );
 qboolean G_admin_readconfig( gentity_t *ent );
 qboolean G_admin_permission( gentity_t *ent, const char *flag );
 qboolean G_admin_name_check( gentity_t *ent, char *name, char *err, int len );
+void G_admin_adminlog_log( gentity_t *ent, char *command, char *args, qboolean success );
 void G_admin_namelog_update( gclient_t *ent, qboolean disconnect );
 int G_admin_namelog_newbie_number( const char *guid );
 g_admin_admin_t *G_admin_admin( const char *guid );
@@ -192,6 +208,7 @@ qboolean G_admin_spec999( gentity_t *ent );
 qboolean G_admin_rename( gentity_t *ent );
 qboolean G_admin_restart( gentity_t *ent );
 qboolean G_admin_nextmap( gentity_t *ent );
+qboolean G_admin_adminlog( gentity_t *ent );
 qboolean G_admin_namelog( gentity_t *ent );
 qboolean G_admin_lock( gentity_t *ent );
 qboolean G_admin_flaglist( gentity_t *ent );
@@ -205,6 +222,7 @@ void G_admin_buffer_end( gentity_t *ent );
 
 void G_admin_duration( int secs, char *duration, int dursize );
 void G_admin_cleanup( void );
+void G_admin_adminlog_cleanup( void );
 void G_admin_namelog_cleanup( void );
 
 #endif /* ifndef _G_ADMIN_H */

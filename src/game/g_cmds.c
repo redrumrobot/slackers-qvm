@@ -1091,6 +1091,7 @@ void Cmd_CallVote_f( gentity_t *ent )
       {
         trap_SendServerCommand( ent-g_entities,
           va( "print \"%s: admin is immune\n\"", cmd ) );
+        G_admin_adminlog_log( ent, team == TEAM_NONE ? "CallVote" : "CallTeamVote", NULL, qfalse );
         return;
       }
     }
@@ -1102,6 +1103,7 @@ void Cmd_CallVote_f( gentity_t *ent )
     {
       trap_SendServerCommand( ent-g_entities,
         va( "print \"%s: admin is immune\n\"", cmd ) );
+      G_admin_adminlog_log( ent, team == TEAM_NONE ? "CallVote" : "CallTeamVote", NULL, qfalse );
       return;
     }
 
@@ -1287,12 +1289,14 @@ void Cmd_CallVote_f( gentity_t *ent )
     trap_SendServerCommand( -1, va( "print \"%s" S_COLOR_WHITE
       " called a vote: %s\n\"", ent->client->pers.netname,
       level.voteDisplayString[ team ] ) );
+      G_admin_adminlog_log( ent, "CallVote", NULL, qtrue );
   }
   else
   {
     G_TeamCommand( team, va( "print \"%s" S_COLOR_WHITE
       " called a team vote: %s\n\"", ent->client->pers.netname,
       level.voteDisplayString[ team ] ) );
+      G_admin_adminlog_log( ent, "CallTeamVote", NULL, qtrue );
   }
 
   level.voteTime[ team ] = level.time;
@@ -1300,6 +1304,7 @@ void Cmd_CallVote_f( gentity_t *ent )
     va( "%d", level.voteTime[ team ] ) );
   trap_SetConfigstring( CS_VOTE_STRING + team,
     level.voteDisplayString[ team ] );
+    
 
   ent->client->pers.voteCount++;
   ent->client->pers.vote[ team ] = qtrue;

@@ -52,6 +52,11 @@ g_admin_cmd_t g_admin_cmds[ ] =
       "(^5command^7)"
     },
 
+    {"adminlog", G_admin_adminlog, "adminlog",
+      "list recent admin activity",
+      "(^5start id#|name|!command|-skip#^7) (^5search skip#^7)"
+    },
+
     {"admintest", G_admin_admintest, "admintest",
       "display your current admin level",
       ""
@@ -243,6 +248,7 @@ g_admin_admin_t *g_admin_admins = NULL;
 g_admin_ban_t *g_admin_bans = NULL;
 g_admin_command_t *g_admin_commands = NULL;
 g_admin_namelog_t *g_admin_namelogs = NULL;
+g_admin_adminlog_t *g_admin_adminlogs = NULL;
 
 void G_admin_register_cmds( void )
 {
@@ -1063,11 +1069,13 @@ qboolean G_admin_cmd_check( gentity_t *ent )
         return qtrue;
       admin_log( ent, command );
       trap_SendConsoleCommand( EXEC_APPEND, c->exec );
+      G_admin_adminlog_log( ent, command, NULL, qtrue );
     }
     else
     {
       admin_log( ent, S_COLOR_RED "attempted" S_COLOR_WHITE );
       ADMP( va( "^3%s: ^7permission denied\n", c->command ) );
+      G_admin_adminlog_log( ent, command, NULL, qfalse );
     }
     return qtrue;
   }
@@ -1080,15 +1088,95 @@ qboolean G_admin_cmd_check( gentity_t *ent )
         return qtrue;
       admin_log( ent, command );
       admincmd->handler( ent );
+      G_admin_adminlog_log( ent, command, NULL, qtrue );
     }
     else
     {
       ADMP( va( "^3%s: ^7permission denied\n", admincmd->keyword ) );
       admin_log( ent, "attempted" );
+      G_admin_adminlog_log( ent, command, NULL, qfalse );
     }
     return qtrue;
   }
   return qfalse;
+}
+
+void G_admin_adminlog_cleanup( void )
+{
+  g_admin_adminlog_t *adminlog, *tempadminlog;
+
+  for( adminlog = g_admin_adminlogs; adminlog; adminlog = tempadminlog )
+  {
+    tempadminlog = adminlog->next;
+    BG_Free( adminlog );
+  }
+}
+
+void G_admin_adminlog_log( gentity_t *ent, char *command, char *args, qboolean success )
+{
+  g_admin_adminlog_t *adminlog;
+  int id = 0;
+  int x;
+  char tmpargs[ MAX_STRING_CHARS ];
+  
+  //make sure if this is something we log
+  if( !command )
+    return;
+
+  if( !Q_stricmp( command, "adminlog" ) ||
+      !Q_stricmp( command, "admintest" ) ||
+      !Q_stricmp( command, "adminhelp" ) ||
+      !Q_stricmp( command, "listadmins" ) ||
+      !Q_stricmp( command, "listmaps" ) ||
+      !Q_stricmp( command, "listplayers" ) ||
+      !Q_stricmp( command, "namelog" ) ||
+      !Q_stricmp( command, "showbans" ) ||
+      !Q_stricmp( command, "time" ) )
+    return;
+
+  //get the highest ID
+  for( adminlog = g_admin_adminlogs; adminlog; adminlog = adminlog->next )
+  {
+    if( adminlog->id > id )
+      id = adminlog->id;
+  }
+  
+  //create a new adminlog
+  for( adminlog = g_admin_adminlogs; adminlog && adminlog->next; adminlog = adminlog->next );
+    
+  if( adminlog )
+    adminlog = adminlog->next = BG_Alloc( sizeof( g_admin_adminlog_t ) );
+  else
+    adminlog = g_admin_adminlogs = BG_Alloc( sizeof( g_admin_adminlog_t ) );
+
+  //fill in the info
+  adminlog->id = ++id;
+  adminlog->time = level.time - level.startTime;
+  adminlog->success = success;
+  if( command )
+    Q_strncpyz( adminlog->command, command, sizeof( adminlog->command ) );
+  if( args )
+    Q_strncpyz( adminlog->args, args, sizeof( adminlog->args ) );
+  else {
+    //TODO: Replace this when trap_args is fixed
+    if( trap_Argc() > 1 ) {
+      for( x = 1; x < trap_Argc(); x++ ) {
+        trap_Argv( x, tmpargs, sizeof( tmpargs ) );
+        Q_strcat( adminlog->args, sizeof( adminlog->args ), va( "%s ", tmpargs ) );
+      }
+    }
+  }
+
+  if( ent && ent->client->pers.admin ) {
+    Q_strncpyz( adminlog->name, ent->client->pers.admin->name, sizeof( adminlog->name ) );
+    adminlog->level = ent->client->pers.admin->level;
+  } else if( ent ) {
+    Q_strncpyz( adminlog->name, ent->client->pers.netname, sizeof( adminlog->name ) );
+    adminlog->level = 0;
+  } else {
+    Q_strncpyz( adminlog->name, "console", sizeof( adminlog->name ) );
+    adminlog->level = 0;
+  }
 }
 
 void G_admin_namelog_cleanup( )
@@ -3492,6 +3580,70 @@ qboolean G_admin_nextmap( gentity_t *ent )
   trap_SetConfigstring( CS_WINNER, "Evacuation" );
   LogExit( va( "nextmap was run by %s",
     ( ent ) ? ent->client->pers.netname : "console" ) );
+  return qtrue;
+}
+
+qboolean G_admin_adminlog( gentity_t *ent )
+{
+  g_admin_adminlog_t *adminlog;
+  char arg1[ MAX_NAME_LENGTH ] = {""};
+  char n1[ MAX_NAME_LENGTH ];
+  char fmt_name[ 16 ];
+  int i;
+  int found = 0;
+  int start = 0;
+  int count = 0;
+  
+  for( adminlog = g_admin_adminlogs; adminlog && adminlog->next; adminlog = adminlog->next );
+  if( adminlog )
+    found = adminlog->id;
+
+  if( !found )
+  {
+    ADMP( "^3Adminlog: ^7no commands have been logged yet.\n" );
+    return qfalse;
+  }
+  
+  if( trap_Argc() >= 2 ) {
+    trap_Argv( 1, arg1, sizeof( arg1 ) );
+    start = atoi( arg1 );
+    start = found + start + 1;
+  } else
+    start = 1;
+  
+  if( start > found )
+  {
+    ADMP( va( "^3Adminlog: ^7%d is the last command that was logged.\n", found ) );
+    return qfalse;
+  }
+  
+  for( adminlog = g_admin_adminlogs; adminlog && adminlog->id < start; adminlog = adminlog->next );
+  ADMBP_begin();
+  for( count = 0, i = start; count < MAX_ADMIN_SHOWADMINLOGS && adminlog; adminlog = adminlog->next, i++, count++ )
+  {
+    G_DecolorString( adminlog->name, n1, sizeof( n1 ) );
+    Com_sprintf( fmt_name, sizeof( fmt_name ), "%%%ds", (int)( 20 + strlen( adminlog->name ) - strlen( n1 ) ) );
+    Com_sprintf( n1, sizeof( n1 ), fmt_name, adminlog->name );
+    
+    ADMBP( va( "%s---^7 %3d ^5%02i^3:^5%02i^7 %20s^7 - %-4d ^3%s %s %s---^7\n",
+      ( adminlog->success ) ? "^7" : "^1",
+      adminlog->id,
+      ( ( adminlog->time / 1000 ) / 60 ),
+      ( ( adminlog->time / 1000 ) % 60 ),
+      n1,
+      adminlog->level,
+      adminlog->command,
+      adminlog->args,
+      ( adminlog->success ) ? "^7" : "^1" ) );
+  }
+  
+  ADMBP( va( "^3adminlog:^7 showing command log %d - %d of %d.\n",
+             ( found ) ? ( start ) : 0,
+             start + count - 1,
+             found ) );
+  
+  ADMBP_end( );
+  
   return qtrue;
 }
 
