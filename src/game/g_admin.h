@@ -213,6 +213,7 @@ qboolean G_admin_namelog( gentity_t *ent );
 qboolean G_admin_lock( gentity_t *ent );
 qboolean G_admin_flaglist( gentity_t *ent );
 qboolean G_admin_flag( gentity_t *ent );
+qboolean G_admin_drop( gentity_t *ent );
 qboolean G_admin_seen( gentity_t *ent );
 
 void G_admin_print( gentity_t *ent, char *m );
