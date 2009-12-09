@@ -242,7 +242,12 @@ g_admin_cmd_t g_admin_cmds[ ] =
     {"unmute", G_admin_mute, "mute",
       "unmute a muted player",
       "[^3name|slot#^7]"
-    }
+    },
+
+    {"warn", G_admin_warn, "warn",
+      "Warn a player to cease or face admin intervention",
+      "[^3name|slot#^7] [reason]"
+     }
   };
 
 static size_t adminNumCmds = sizeof( g_admin_cmds ) / sizeof( g_admin_cmds[ 0 ] );
@@ -4240,6 +4245,48 @@ void G_admin_seen_update( char *guid )
   }
 }
 
+qboolean G_admin_warn( gentity_t *ent )
+{
+  int pids[ MAX_CLIENTS ], found;
+  char name[ MAX_NAME_LENGTH ], reason[ MAX_STRING_CHARS ], err[ MAX_STRING_CHARS ];
+  int minargc = 3;
+  gentity_t *vic;
+  
+  if( G_admin_permission( ent, ADMF_UNACCOUNTABLE ) )
+    minargc = 2;
+  
+  if( trap_Argc() < minargc )
+  {
+    ADMP( "^3warn: ^7usage: warn [name] [reason]\n" );
+    return qfalse;
+  }
+  
+  trap_Argv( 1, name, sizeof( name ) );
+  Q_strncpyz( reason, ConcatArgs( 2 ), sizeof( reason ) );
+  
+  if( ( found = G_ClientNumbersFromString( name, pids, MAX_CLIENTS ) ) != 1 )
+  {
+    G_MatchOnePlayer( pids, found, err, sizeof( err ) );
+    ADMP( va( "^3warn: ^7%s\n", err ) );
+    return qfalse;
+  }
+  
+  if( !admin_higher( ent, &g_entities[ pids[ 0 ] ] ) )
+  {
+    ADMP( "^3warn: ^7sorry, but your intended victim has a higher admin"
+        " level than you.\n" );
+    return qfalse;
+  }
+  
+  vic = &g_entities[ pids[ 0 ] ];
+  //next line is the onscreen warning
+  CPx( pids[ 0 ],va("cp \"^3You have been warned by an administrator.\n ^3Cease immediately or face admin action!\n^1 %s%s\"",(*reason)? "REASON: " : "" ,(*reason)? reason : "") );
+  AP( va( "print \"^3warn: ^7%s^7 has been warned to cease and desist %s by %s \n\"",
+            vic->client->pers.netname, (*reason) ? reason : "his current activity",
+            ( ent ) ? ent->client->pers.netname : "console" ) );//console announcement
+  ClientUserinfoChanged( pids[ 0 ] );
+  return qtrue;
+}
 
 /*
 ================

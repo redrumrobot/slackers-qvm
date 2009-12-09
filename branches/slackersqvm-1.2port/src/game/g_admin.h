@@ -215,6 +215,7 @@ qboolean G_admin_flaglist( gentity_t *ent );
 qboolean G_admin_flag( gentity_t *ent );
 qboolean G_admin_drop( gentity_t *ent );
 qboolean G_admin_seen( gentity_t *ent );
+qboolean G_admin_warn( gentity_t *ent );
 
 void G_admin_print( gentity_t *ent, char *m );
 void G_admin_buffer_print( gentity_t *ent, char *m );
