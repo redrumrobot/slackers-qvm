@@ -1128,6 +1128,7 @@ void G_admin_adminlog_log( gentity_t *ent, char *command, char *args, qboolean s
       !Q_stricmp( command, "listmaps" ) ||
       !Q_stricmp( command, "listplayers" ) ||
       !Q_stricmp( command, "namelog" ) ||
+      !Q_stricmp( command, "register" ) ||
       !Q_stricmp( command, "showbans" ) ||
       !Q_stricmp( command, "time" ) )
     return;
@@ -3599,6 +3600,8 @@ qboolean G_admin_adminlog( gentity_t *ent )
     trap_Argv( 1, arg1, sizeof( arg1 ) );
     start = atoi( arg1 );
     start = found + start + 1;
+    if( start < 1 )
+      start = 1;
   } else
     start = 1;
   
