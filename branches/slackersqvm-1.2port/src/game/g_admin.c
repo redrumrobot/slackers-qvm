@@ -100,6 +100,11 @@ g_admin_cmd_t g_admin_cmds[ ] =
       "[^3name|slot#^7]"
     },
 
+    {"drop", G_admin_drop, "drop",
+      "kick a client from the server without log",
+      "[^3name|slot#^7] [^3message^7]"
+    },
+
     {"flag", G_admin_flag, "flag",
       "add an admin flag to a player, prefix flag with '-' to disallow the flag. "
       "console can use this command on admin levels by prefacing a '*' to the admin level value.",
@@ -4071,6 +4076,46 @@ qboolean G_admin_flag( gentity_t *ent )
   return qtrue;
 }
 
+qboolean G_admin_drop( gentity_t *ent )
+{
+  int pids[ MAX_CLIENTS ], found;
+  char name[ MAX_NAME_LENGTH ], err[ MAX_STRING_CHARS ];
+
+  if( trap_Argc() < 2 )
+  {
+    ADMP( "^3drop: ^7usage: drop [name|slot#] [message]\n" );
+    return qfalse;
+  }
+
+  trap_Argv( 1, name, sizeof( name ) );
+  if( ( found = G_ClientNumbersFromString( name, pids, MAX_CLIENTS ) ) != 1 )
+  {
+    G_MatchOnePlayer( pids, found, err, sizeof( err ) );
+    ADMP( va( "^3drop: ^7%s\n", err ) );
+    return qfalse;
+  }
+
+  if( !admin_higher( ent, &g_entities[ pids[ 0 ] ] ) )
+  {
+    ADMP( "^3drop: ^7sorry, but your intended victim has a higher admin"
+          " level than you\n" );
+    return qfalse;
+  }
+
+  // victim's message
+  if( trap_Argc() > 2 )
+    trap_SendServerCommand( pids[ 0 ],
+      va( "disconnect \"You have been dropped.\n%s^7\n\"",
+      ConcatArgs( 2 ) ) );
+  else
+    trap_SendServerCommand( pids[ 0 ], va( "disconnect" ) );
+
+  // server message
+  trap_DropClient( pids[ 0 ], va( "disconnected" ) );
+
+  return qtrue;
+}
+
 qboolean G_admin_seen(gentity_t *ent )
 {
   char name[ MAX_NAME_LENGTH ];
@@ -4088,7 +4133,7 @@ qboolean G_admin_seen(gentity_t *ent )
 
   if( trap_Argc() < 2 )
   {
-    ADMP( "^3!seen: ^7usage: !seen [name|admin#]\n" );
+    ADMP( "^3seen: ^7usage: seen [name|admin#]\n" );
     return qfalse;
   }
   
@@ -4170,7 +4215,7 @@ qboolean G_admin_seen(gentity_t *ent )
   }
 
   if( search[ 0 ] )
-    ADMBP( va( "^3!seen:^7 found %d player%s matching '%s'\n",
+    ADMBP( va( "^3seen:^7 found %d player%s matching '%s'\n",
       count, (count == 1) ? "" : "s", search ) );
   else if ( !count )
     ADMBP( "^3!seen:^7 no one connectd by that slot number\n" );
