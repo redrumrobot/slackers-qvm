@@ -3588,14 +3588,21 @@ qboolean G_admin_nextmap( gentity_t *ent )
 qboolean G_admin_adminlog( gentity_t *ent )
 {
   g_admin_adminlog_t *adminlog;
-  char arg1[ MAX_NAME_LENGTH ] = {""};
-  char n1[ MAX_NAME_LENGTH ];
-  char fmt_name[ 16 ];
+  int argcount = 0;
   int i;
+  char arg1[ MAX_NAME_LENGTH ] = {""};
+  qboolean filterbyname = qfalse;
+  char filtername[ MAX_NAME_LENGTH ];
+  qboolean filterbycommand = qfalse;
+  char filtercommand[ MAX_NAME_LENGTH ];
+  int start = 1;
   int found = 0;
-  int start = 0;
   int count = 0;
-  
+  char n1[ MAX_NAME_LENGTH ];
+  char c1[ MAX_NAME_LENGTH ];
+  char fn1[ MAX_NAME_LENGTH ];
+  char fc1[ MAX_NAME_LENGTH ];
+
   for( adminlog = g_admin_adminlogs; adminlog && adminlog->next; adminlog = adminlog->next );
   if( adminlog )
     found = adminlog->id;
@@ -3606,14 +3613,31 @@ qboolean G_admin_adminlog( gentity_t *ent )
     return qfalse;
   }
   
-  if( trap_Argc() >= 2 ) {
-    trap_Argv( 1, arg1, sizeof( arg1 ) );
-    start = atoi( arg1 );
-    start = found + start + 1;
-    if( start < 1 )
-      start = 1;
-  } else
-    start = 1;
+  //parse the different args that are possible
+  argcount = trap_Argc();
+  if( argcount >= 2 ) {
+    for( i = 1; i < argcount; i++ ) {
+      trap_Argv( i, arg1, sizeof( arg1 ) );
+      //check for the arguement type
+      if( !Q_stricmp( arg1, "-n" ) && ( i < argcount ) ) {
+        i++;
+        trap_Argv( i, filtername, sizeof( filtername ) );
+        G_SanitiseString( filtername, fn1, sizeof( fn1 ) );
+        filterbyname = qtrue;
+      } else if( !Q_stricmp( arg1, "-c" ) && ( i < argcount ) ) {
+        i++;
+        trap_Argv( i, filtercommand, sizeof( filtercommand ) );
+        G_SanitiseString( filtercommand, fc1, sizeof( fc1 ) );
+        filterbycommand = qtrue;
+      } else {
+        start = atoi( arg1 );
+        if( start > 0 ) start *= -1;
+        start = found + start + 1;
+        if( start < 1 )
+          start = 1;
+      }
+    }
+  }
   
   if( start > found )
   {
@@ -3623,29 +3647,39 @@ qboolean G_admin_adminlog( gentity_t *ent )
   
   for( adminlog = g_admin_adminlogs; adminlog && adminlog->id < start; adminlog = adminlog->next );
   ADMBP_begin();
-  for( count = 0, i = start; count < MAX_ADMIN_SHOWADMINLOGS && adminlog; adminlog = adminlog->next, i++, count++ )
+  ADMBP( "^2P^3/^1F^3  ID Time       Command        Level     Name\n" );
+  for( count = 0, i = start; count < MAX_ADMIN_SHOWADMINLOGS && adminlog; adminlog = adminlog->next, i++ )
   {
-    G_DecolorString( adminlog->name, n1, sizeof( n1 ) );
-    Com_sprintf( fmt_name, sizeof( fmt_name ), "%%%ds", (int)( 20 + strlen( adminlog->name ) - strlen( n1 ) ) );
-    Com_sprintf( n1, sizeof( n1 ), fmt_name, adminlog->name );
+    G_SanitiseString( adminlog->name, n1, sizeof( n1 ) );
+    G_SanitiseString( adminlog->command, c1, sizeof( c1 ) );
+
+    //check to see if this record can be shown
+    if( filterbyname == qtrue && !strstr( n1, fn1 ) )
+      continue;
+    if( filterbycommand == qtrue && !strstr( c1, fc1 ) )
+      continue;
     
-    ADMBP( va( "%s---^7 %3d ^5%02i^3:^5%02i^7 %20s^7 - %-4d ^3%s %s %s---^7\n",
-      ( adminlog->success ) ? "^7" : "^1",
-      adminlog->id,
-      ( ( adminlog->time / 1000 ) / 60 ),
-      ( ( adminlog->time / 1000 ) % 60 ),
-      n1,
-      adminlog->level,
-      adminlog->command,
-      adminlog->args,
-      ( adminlog->success ) ? "^7" : "^1" ) );
+    ADMBP( va( "%s---^7 %3d ^5%02i^3:^5%02i^7 ^3%-20s^7 %-4d %s\n",
+                ( adminlog->success ) ? "^2" : "^1",
+                adminlog->id,
+                ( ( adminlog->time / 1000 ) / 60 ),
+                ( ( adminlog->time / 1000 ) % 60 ),
+                va( "/%s %s", adminlog->command, adminlog->args ),
+                adminlog->level,
+                adminlog->name ) );
+    count++;
   }
   
   ADMBP( va( "^3adminlog:^7 showing command log %d - %d of %d.\n",
-             ( found ) ? ( start ) : 0,
+             ( found && count ) ? ( start ) : 0,
              start + count - 1,
              found ) );
-  
+  if( filterbyname == qtrue || filterbycommand == qtrue )
+    ADMBP( "^3using filters:\n" );
+  if( filterbyname == qtrue )
+    ADMBP( va( "  ^3Name Matches: ^7%s\n", filtername ) );
+  if( filterbycommand == qtrue )
+    ADMBP( va( "  ^3command Matches: ^7%s\n", filtercommand ) );
   ADMBP_end( );
   
   return qtrue;
