@@ -3703,9 +3703,9 @@ qboolean G_admin_adminlog( gentity_t *ent )
   if( filterbycommand == qtrue )
     ADMBP( va( "  ^3command Matches: ^7%s\n", filtercommand ) );
   if( filterpass == qtrue )
-    ADMBP( "  ^3command ^2passed^7.\n" );
+    ADMBP( "  ^3command ^2passed^3.\n" );
   if( filterfail == qtrue )
-    ADMBP( "  ^3command ^1failed^7.\n" );
+    ADMBP( "  ^3command ^1failed^3.\n" );
   ADMBP_end( );
   
   return qtrue;
