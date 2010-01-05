@@ -3595,6 +3595,11 @@ qboolean G_admin_adminlog( gentity_t *ent )
   char filtername[ MAX_NAME_LENGTH ];
   qboolean filterbycommand = qfalse;
   char filtercommand[ MAX_NAME_LENGTH ];
+  qboolean filterbylevel = qfalse;
+  char filterlevelbuff[ MAX_NAME_LENGTH ];
+  int filterlevel = 0;
+  qboolean filterpass = qfalse;
+  qboolean filterfail = qfalse;
   int start = 1;
   int found = 0;
   int count = 0;
@@ -3624,11 +3629,20 @@ qboolean G_admin_adminlog( gentity_t *ent )
         trap_Argv( i, filtername, sizeof( filtername ) );
         G_SanitiseString( filtername, fn1, sizeof( fn1 ) );
         filterbyname = qtrue;
+      } else if( !Q_stricmp( arg1, "-l" ) && ( i < argcount ) ) {
+        i++;
+        trap_Argv( i, filterlevelbuff, sizeof( filterlevelbuff ) );
+        filterlevel = atoi( filterlevelbuff );
+        filterbylevel = qtrue;
       } else if( !Q_stricmp( arg1, "-c" ) && ( i < argcount ) ) {
         i++;
         trap_Argv( i, filtercommand, sizeof( filtercommand ) );
         G_SanitiseString( filtercommand, fc1, sizeof( fc1 ) );
         filterbycommand = qtrue;
+      } else if( !Q_stricmp( arg1, "-pass" ) ) {
+        filterpass = qtrue;
+      } else if( !Q_stricmp( arg1, "-fail" ) ) {
+        filterfail = qtrue;
       } else {
         start = atoi( arg1 );
         if( start > 0 ) start *= -1;
@@ -3656,9 +3670,15 @@ qboolean G_admin_adminlog( gentity_t *ent )
     //check to see if this record can be shown
     if( filterbyname == qtrue && !strstr( n1, fn1 ) )
       continue;
-    if( filterbycommand == qtrue && !strstr( c1, fc1 ) )
+    if( filterbylevel == qtrue && adminlog->level != filterlevel )
       continue;
-    
+    if( filterbycommand == qtrue && Q_stricmp( c1, fc1 ) )
+      continue;
+    if( filterpass == qtrue && !adminlog->success )
+      continue;
+     if( filterfail == qtrue && adminlog->success )
+      continue;
+     
     ADMBP( va( "%s---^7 %3d ^5%02i^3:^5%02i^7 ^3%-20s^7 %-4d %s\n",
                 ( adminlog->success ) ? "^2" : "^1",
                 adminlog->id,
@@ -3674,12 +3694,18 @@ qboolean G_admin_adminlog( gentity_t *ent )
              ( found && count ) ? ( start ) : 0,
              start + count - 1,
              found ) );
-  if( filterbyname == qtrue || filterbycommand == qtrue )
+  if( filterbyname == qtrue || filterbylevel == qtrue || filterbycommand == qtrue || filterpass == qtrue || filterfail == qtrue )
     ADMBP( "^3using filters:\n" );
   if( filterbyname == qtrue )
     ADMBP( va( "  ^3Name Matches: ^7%s\n", filtername ) );
+  if( filterbylevel == qtrue )
+    ADMBP( va( "  ^3Level matches: ^7%d\n", filterlevel ) );
   if( filterbycommand == qtrue )
     ADMBP( va( "  ^3command Matches: ^7%s\n", filtercommand ) );
+  if( filterpass == qtrue )
+    ADMBP( "  ^3command ^2passed^7.\n" );
+  if( filterfail == qtrue )
+    ADMBP( "  ^3command ^1failed^7.\n" );
   ADMBP_end( );
   
   return qtrue;
