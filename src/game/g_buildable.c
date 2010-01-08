@@ -3449,9 +3449,11 @@ Checks to see if a buildable can be built
 */
 itemBuildError_t G_CanBuild( gentity_t *ent, buildable_t buildable, int distance, vec3_t origin )
 {
+  int               i = 0;
   vec3_t            angles;
   vec3_t            entity_origin, normal;
-  vec3_t            mins, maxs;
+  vec3_t            mins, maxs, nbmins, nbmaxs;
+  vec3_t            nbVect;
   trace_t           tr1, tr2, tr3;
   itemBuildError_t  reason = IBE_NONE, tempReason;
   gentity_t         *tempent;
@@ -3488,6 +3490,25 @@ itemBuildError_t G_CanBuild( gentity_t *ent, buildable_t buildable, int distance
 
   if( ( tempReason = G_SufficientBPAvailable( buildable, origin ) ) != IBE_NONE )
     reason = tempReason;
+
+  //check if we are near a nobuild marker, if so, can't build here...
+  for( i = 0; i < MAX_GENTITIES; i++ )
+  {
+    tempent = &g_entities[ i ];
+
+    if( !tempent->noBuild.isNB )
+      continue;
+
+    nbVect[0] = tempent->noBuild.Area;
+    nbVect[1] = tempent->noBuild.Area;
+    nbVect[2] = tempent->noBuild.Height;
+
+    VectorSubtract( origin, nbVect, nbmins );
+    VectorAdd( origin, nbVect, nbmaxs );
+
+    if( trap_EntityContact( nbmins, nbmaxs, tempent ) )
+      reason = IBE_PERMISSION;
+  }
 
   if( ent->client->ps.stats[ STAT_TEAM ] == TEAM_ALIENS )
   {
@@ -3872,6 +3893,39 @@ static gentity_t *G_Build( gentity_t *builder, buildable_t buildable, vec3_t ori
   return built;
 }
 
+static void G_SpawnMarker( vec3_t origin )
+{
+  gentity_t *nb;
+  int i;
+
+  // Make the marker...
+  nb = G_Spawn( );
+  nb->s.modelindex = 0;
+  VectorCopy( origin, nb->s.pos.trBase );
+  VectorCopy( origin, nb->r.currentOrigin );
+  nb->noBuild.isNB = qtrue;
+  nb->noBuild.Area = level.nbArea;
+  nb->noBuild.Height = level.nbHeight;
+  trap_LinkEntity( nb );
+
+  // Log markers made...
+  for( i = 0; i < MAX_GENTITIES; i++ )
+  {
+    if( level.nbMarkers[ i ].Marker != NULL )
+      continue;
+
+    level.nbMarkers[ i ].Marker = nb;
+    VectorCopy( origin, level.nbMarkers[ i ].Origin );
+    SnapVector( level.nbMarkers[ i ].Origin );
+    break;
+  }
+
+  // End nobuild mode...
+  level.noBuilding = qfalse;
+  level.nbArea = 0.0f;
+  level.nbHeight = 0.0f;
+}
+
 /*
 =================
 G_BuildIfValid
@@ -3887,6 +3941,16 @@ qboolean G_BuildIfValid( gentity_t *ent, buildable_t buildable )
   switch( G_CanBuild( ent, buildable, dist, origin ) )
   {
     case IBE_NONE:
+      if( level.noBuilding )
+      {
+        vec3_t    mins;
+
+        BG_BuildableBoundingBox( buildable, mins, NULL );
+        origin[2] += mins[2];
+
+        G_SpawnMarker( origin );
+        return qtrue;
+      }
       G_Build( ent, buildable, origin, ent->s.apos.trBase );
       return qtrue;
 
@@ -4581,3 +4645,125 @@ const char *G_RevertBuild( buildLog_t *log )
   return "conflict with an existing buildable";
 }
 
+/*
+============
+G_NobuildLoad
+
+load the nobuild markers that were previously saved (if there are any).
+============
+*/
+void G_NobuildLoad( void )
+{
+  fileHandle_t f;
+  int len;
+  char *nobuild;
+  char map[ MAX_QPATH ];
+  vec3_t origin = { 0.0f, 0.0f, 0.0f };
+  char line[ MAX_STRING_CHARS ];
+  int i = 0;
+  gentity_t *nb;
+  float area;
+  float height;
+
+  trap_Cvar_VariableStringBuffer( "mapname", map, sizeof( map ) );
+  len = trap_FS_FOpenFile( va( "nobuild/%s.dat", map ), &f, FS_READ );
+  if( len < 0 )
+  {
+    // This isn't needed since nobuild is pretty much optional...
+    //G_Printf( "ERROR: nobuild for %s could not be opened\n", map );
+    return;
+  }
+  nobuild = BG_Alloc( len + 1 );
+  trap_FS_Read( nobuild, len, f );
+  *( nobuild + len ) = '\0';
+  trap_FS_FCloseFile( f );
+  while( *nobuild )
+  {
+    if( i >= sizeof( line ) - 1 )
+    {
+      return; 
+    }
+    
+    line[ i++ ] = *nobuild;
+    line[ i ] = '\0';
+    if( *nobuild == '\n' )
+    {
+      i = 0; 
+      sscanf( line, "%f %f %f %f %f\n",
+        &origin[ 0 ], &origin[ 1 ], &origin[ 2 ], &area, &height  );
+
+      // Make the marker...
+      nb = G_Spawn( );
+      nb->s.modelindex = 0;
+      VectorCopy( origin, nb->s.pos.trBase );
+      VectorCopy( origin, nb->r.currentOrigin );
+      nb->noBuild.isNB = qtrue;
+      nb->noBuild.Area = area;
+      nb->noBuild.Height = height;
+      trap_LinkEntity( nb );
+
+      // Log markers made...
+      for( i = 0; i < MAX_GENTITIES; i++ )
+      {
+        if( level.nbMarkers[ i ].Marker != NULL )
+          continue;
+
+        level.nbMarkers[ i ].Marker = nb;
+        VectorCopy( origin, level.nbMarkers[ i ].Origin );
+        SnapVector( level.nbMarkers[ i ].Origin );
+        break;
+      }
+    }
+    nobuild++;
+  }
+}
+
+/*
+============
+G_NobuildSave
+Save all currently placed nobuild markers into the "nobuild" folder
+============
+*/
+void G_NobuildSave( void )
+{
+  char map[ MAX_QPATH ];
+  char fileName[ MAX_OSPATH ];
+  fileHandle_t f;
+  int len;
+  int i;
+  gentity_t *ent;
+  char *s;
+
+  trap_Cvar_VariableStringBuffer( "mapname", map, sizeof( map ) );
+  if( !map[ 0 ] )
+  {
+    G_Printf( "NobuildSave( ): no map is loaded\n" );
+    return;
+  }
+  Com_sprintf( fileName, sizeof( fileName ), "nobuild/%s.dat", map );
+
+  len = trap_FS_FOpenFile( fileName, &f, FS_WRITE );
+  if( len < 0 )
+  {
+    G_Printf( "nobuildsave: could not open %s\n", fileName );
+    return;
+  }
+
+  G_Printf("nobuildsave: saving nobuild to %s\n", fileName );
+
+  for( i = 0; i < MAX_GENTITIES; i++ )
+  {
+    ent = &level.gentities[ i ];
+    if( ent->noBuild.isNB != qtrue )
+      continue;
+
+    s = va( "%f %f %f %f %f\n",
+      ent->r.currentOrigin[ 0 ],
+      ent->r.currentOrigin[ 1 ],
+      ent->r.currentOrigin[ 2 ],
+      ent->noBuild.Area,
+      ent->noBuild.Height );
+    trap_FS_Write( s, strlen( s ), f );
+  }
+  trap_FS_FCloseFile( f );
+}
