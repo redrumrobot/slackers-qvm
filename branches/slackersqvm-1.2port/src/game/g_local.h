@@ -271,6 +271,7 @@ typedef struct
   spectatorState_t  spectatorState;
   int               spectatorClient;  // for chasecam and follow mode
   team_t            restartTeam; //for !restart keepteams and !restart switchteams
+  qboolean          invisible;        // for being invisible on the server - ghosts!
   clientList_t      ignoreList;
 } clientSession_t;
 
