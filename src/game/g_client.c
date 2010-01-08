@@ -1132,8 +1132,10 @@ void ClientUserinfoChanged( int clientNum )
   {
     if( strcmp( oldname, client->pers.netname ) )
     {
-      trap_SendServerCommand( -1, va( "print \"%s" S_COLOR_WHITE
-        " renamed to %s" S_COLOR_WHITE "\n\"", oldname, client->pers.netname ) );
+      //dont show if players invisible
+      if( client->sess.invisible != qtrue )
+        trap_SendServerCommand( -1, va( "print \"%s" S_COLOR_WHITE
+          " renamed to %s" S_COLOR_WHITE "\n\"", oldname, client->pers.netname ) );
       G_LogPrintf( "ClientRename: %i [%s] (%s) \"%s^7\" -> \"%s^7\"\n", clientNum,
          client->pers.ip, client->pers.guid, oldname, client->pers.netname );
       G_admin_namelog_update( client, qfalse );
@@ -1232,15 +1234,20 @@ void ClientUserinfoChanged( int clientNum )
 
   // send over a subset of the userinfo keys so other clients can
   // print scoreboards, display models, and play custom sounds
+  
+  if ( client->sess.invisible != qtrue )
+  {
+    Com_sprintf( userinfo, sizeof( userinfo ),
+      "n\\%s\\t\\%i\\model\\%s\\c1\\%s\\c2\\%s\\"
+      "hc\\%i\\ig\\%16s\\v\\%s",
+      client->pers.netname, client->pers.teamSelection, model, c1, c2,
+      client->pers.maxHealth, Com_ClientListString( &client->sess.ignoreList ),
+      client->pers.voice );
 
-  Com_sprintf( userinfo, sizeof( userinfo ),
-    "n\\%s\\t\\%i\\model\\%s\\c1\\%s\\c2\\%s\\"
-    "hc\\%i\\ig\\%16s\\v\\%s",
-    client->pers.netname, client->pers.teamSelection, model, c1, c2,
-    client->pers.maxHealth, Com_ClientListString( &client->sess.ignoreList ),
-    client->pers.voice );
-
-  trap_SetConfigstring( CS_PLAYERS + clientNum, userinfo );
+    trap_SetConfigstring( CS_PLAYERS + clientNum, userinfo );
+  } else {
+    trap_SetConfigstring( CS_PLAYERS + clientNum, "" );
+  }
 
   /*G_LogPrintf( "ClientUserinfoChanged: %i %s\n", clientNum, userinfo );*/
 }
@@ -1342,18 +1349,23 @@ char *ClientConnect( int clientNum, qboolean firstTime )
   G_LogPrintf( "ClientConnect: %i [%s] (%s) \"%s^7\"\n", clientNum,
    client->pers.ip, client->pers.guid, client->pers.netname );
 
-  // don't do the "xxx connected" messages if they were caried over from previous level
-  if( firstTime )
-    trap_SendServerCommand( -1, va( "print \"%s" S_COLOR_WHITE " connected\n\"", 
-                                    client->pers.netname ) );
+  if( client->sess.invisible != qtrue )
+  {
+    // don't do the "xxx connected" messages if they were caried over from previous level
+    if( firstTime )
+      trap_SendServerCommand( -1, va( "print \"%s" S_COLOR_WHITE " connected\n\"", 
+                                      client->pers.netname ) );
+  }
 
   if( client->pers.admin )
     G_admin_authlog( ent );
 
-  // count current clients and rank for scoreboard
-  CalculateRanks( );
-  G_admin_namelog_update( client, qfalse );
-  
+  if( client->sess.invisible != qtrue )
+  {
+    // count current clients and rank for scoreboard
+    CalculateRanks( );
+    G_admin_namelog_update( client, qfalse );
+  }
 
   // if this is after !restart keepteams or !restart switchteams, apply said selection
   if ( client->sess.restartTeam != TEAM_NONE )
@@ -1408,19 +1420,27 @@ void ClientBegin( int clientNum )
 
   // locate ent at a spawn point
   ClientSpawn( ent, NULL, NULL, NULL );
+  
+  // Ignore invisible players for this section:
+  if ( client->sess.invisible != qtrue )
+  {
+    trap_SendServerCommand( -1, va( "print \"%s" S_COLOR_WHITE " entered the game\n\"", client->pers.netname ) );
 
-  trap_SendServerCommand( -1, va( "print \"%s" S_COLOR_WHITE " entered the game\n\"", client->pers.netname ) );
+    // name can change between ClientConnect() and ClientBegin()
+    G_admin_namelog_update( client, qfalse );
 
-  // name can change between ClientConnect() and ClientBegin()
-  G_admin_namelog_update( client, qfalse );
-
-  // request the clients PTR code
-  trap_SendServerCommand( ent - g_entities, "ptrcrequest" );
+    // request the clients PTR code
+    trap_SendServerCommand( ent - g_entities, "ptrcrequest" );
+  }
 
   G_LogPrintf( "ClientBegin: %i\n", clientNum );
 
-  // count current clients and rank for scoreboard
-  CalculateRanks( );
+  // Ignore invisible players for this section:
+  if ( client->sess.invisible != qtrue )
+  {
+    // count current clients and rank for scoreboard
+    CalculateRanks( );
+  }
 
   // send the client a list of commands that can be used
   G_ListCommands( ent );

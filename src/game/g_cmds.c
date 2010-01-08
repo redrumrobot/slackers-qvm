@@ -555,6 +555,14 @@ void Cmd_Team_f( gentity_t *ent )
   if( level.time - ent->client->pers.teamChangeTime < 1000 )
     return;
 
+  // Prevent invisible players from joining a team
+  if( ent->client->sess.invisible == qtrue )
+  {
+    trap_SendServerCommand( ent-g_entities,
+                            va( "print \"You cannot join a team while invisible\n\"" ) );
+    return;
+  }
+
   if( oldteam == TEAM_ALIENS )
     aliens--;
   else if( oldteam == TEAM_HUMANS )
@@ -725,6 +733,13 @@ void G_Say( gentity_t *ent, saymode_t mode, const char *chatText )
     trap_SendServerCommand( ent-g_entities, "print \"say: Global chatting for "
       "spectators has been disabled. You may only use team chat.\n\"" );
     mode = SAY_TEAM;
+  }
+
+  // Invisible players cannot use chat
+  if( ent->client->sess.invisible == qtrue )
+  {
+    trap_SendServerCommand( ent-g_entities, "print \"You cannot chat while invisible\n\"" );
+    return;
   }
 
   switch( mode )
@@ -1009,6 +1024,13 @@ void Cmd_CallVote_f( gentity_t *ent )
   trap_Argv( 0, cmd, sizeof( cmd ) );
   trap_Argv( 1, vote, sizeof( vote ) );
   trap_Argv( 2, arg, sizeof( arg ) );
+
+  // Invisible players cannot call votes
+  if( ent->client->sess.invisible == qtrue )
+  {
+    trap_SendServerCommand( ent-g_entities, "print \"You cannot call votes while invisible\n\"" );
+    return;
+  }
 
   if( !Q_stricmp( cmd, "callteamvote" ) )
     team = ent->client->pers.teamSelection;
