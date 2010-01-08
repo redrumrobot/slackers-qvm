@@ -2970,7 +2970,7 @@ qboolean G_admin_listplayers( gentity_t *ent )
   ADMBP_begin();
   ADMBP( va( "^3listplayers: ^7%d players connected%s:\n",
     level.numConnectedClients - invisiblePlayers,
-     ( invisiblePlayers && G_admin_permission( ent, "invisible" ) ) ? va("(%d players invisible", invisiblePlayers ) : "" ) );
+     ( invisiblePlayers && G_admin_permission( ent, "invisible" ) ) ? va("(%d players invisible)", invisiblePlayers ) : "" ) );
   for( i = 0; i < level.maxclients; i++ )
   {
     p = &level.clients[ i ];
