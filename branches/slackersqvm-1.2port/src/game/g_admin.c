@@ -161,6 +161,11 @@ g_admin_cmd_t g_admin_cmds[ ] =
       ""
     },
 
+    {"nobuild", G_admin_nobuild, "nobuild",
+      "set nobuild markers to prevent players from building in an area",
+      "(^5area^7) (^5height^7)"
+    },
+
     {"passvote", G_admin_endvote, "passvote",
       "pass a vote currently taking place",
       "(^5a|h^7)"
@@ -4399,6 +4404,140 @@ qboolean G_admin_invisible( gentity_t *ent )
     trap_SendServerCommand( -1, va( "print \"%s" S_COLOR_WHITE " entered the game\n\"", ent->client->pers.netname ) );
   }
   return qtrue;
+}
+
+qboolean G_admin_nobuild( gentity_t *ent )
+{
+  char buffer[ MAX_STRING_CHARS ];
+  int  i, tmp;
+  
+  if( trap_Argc() < 2 )
+  {
+    ADMP( "^3nobuild: ^7usage: nobuild (^5enable / disable / log / remove / save^7)\n" );
+    return qfalse;
+  }
+  
+  trap_Argv( 1, buffer, sizeof( buffer ) );
+  
+  if( !Q_stricmp( buffer, "enable" ) || !Q_stricmp( buffer, "Enable" ) )
+  {
+    if( trap_Argc() < 4 )
+    {
+      ADMP( "^3nobuild: ^7usage: nobuild enable (^5area^7) (^5height^7)\n" );
+      return qfalse;
+    }
+    
+    if( !level.noBuilding )
+    {
+      
+      level.noBuilding = qtrue;
+      
+      // Grab and set the area
+      trap_Argv( 2, buffer, sizeof( buffer ) );
+      tmp = atoi( buffer );
+      level.nbArea = tmp;
+      
+      // Grab and set the height
+      trap_Argv( 3, buffer, sizeof( buffer ) );
+      tmp = atoi( buffer );
+      level.nbHeight = tmp;
+      
+      ADMP( "^3nobuild: ^7nobuild is now enabled, please place a buildable to spawn a marker\n" );
+      return qtrue;
+    }
+    else
+    {
+      ADMP( "^3nobuild: ^7nobuild is already enabled. type !nobuild disable to disable nobuild mode.\n" );
+      return qfalse;
+    }
+  }
+  
+  if( !Q_stricmp( buffer, "disable" ) || !Q_stricmp( buffer, "Disable" ) )
+  {
+    if( level.noBuilding )
+    {
+      level.noBuilding = qfalse;
+      level.nbArea = 0.0f;
+      level.nbHeight = 0.0f;
+      ADMP( "^3nobuild: ^7nobuild is now disabled\n" );
+      return qtrue;
+    }
+    else
+    {
+      ADMP( "^3nobuild: ^7nobuild is disabled. type nobuild enable (^5area^7) (^5height^7) to enable nobuild mode.\n" );
+      return qfalse;
+    }
+  }
+  
+  if( !Q_stricmp( buffer, "log" ) || !Q_stricmp( buffer, "Log" ) )
+  {
+    ADMBP_begin();
+
+    tmp = 0;
+    for( i = 0; i < MAX_GENTITIES; i++ )
+    {
+      if( level.nbMarkers[ i ].Marker == NULL )
+        continue;
+
+      // This will display a start at 1, and not 0. This is to stop confusion by server ops
+      ADMBP( va( "^7#%i at origin (^5%f %f %f^7)^7\n", i + 1, level.nbMarkers[ i ].Origin[0], level.nbMarkers[ i ].Origin[1], level.nbMarkers[ i ].Origin[2] ) );
+      tmp++;
+    }
+    ADMBP( va( "^3nobuild:^7 displaying %i marker(s)\n", tmp ) );
+
+    ADMBP_end();
+    return qtrue;
+  }
+  
+  if( !Q_stricmp( buffer, "remove" ) || !Q_stricmp( buffer, "Remove" ) )
+  {
+    if( trap_Argc() < 3 )
+    {
+      ADMP( "^3nobuild: ^7usage: nobuild remove (^5marker #^7)\n" );
+      return qfalse;
+    }
+
+    trap_Argv( 2, buffer, sizeof( buffer ) );
+    tmp = atoi( buffer ) - 1;
+    // ^ that was to work with the display number...
+
+    if( level.nbMarkers[ tmp ].Marker == NULL )
+    {
+      ADMP( "^3nobuild: ^7that is not a valid marker number\n" );
+      return qfalse;
+    }
+    // Donno why im doing this, but lets clear this...
+    level.nbMarkers[ tmp ].Marker->noBuild.isNB = qfalse;
+    level.nbMarkers[ tmp ].Marker->noBuild.Area = 0.0f;
+    level.nbMarkers[ tmp ].Marker->noBuild.Height = 0.0f;
+
+    // Free the entitiy and null it out...
+    G_FreeEntity( level.nbMarkers[ tmp ].Marker );
+    level.nbMarkers[ tmp ].Marker = NULL;
+
+    // That is to work with the display number...
+    ADMP( va( "^3nobuild:^7 marker %i has been removed\n", tmp + 1 ) );
+    return qtrue;
+  }
+  
+  if( !Q_stricmp( buffer, "save" ) || !Q_stricmp( buffer, "Save" ) )
+  {
+    int  i, tmp;
+
+    G_NobuildSave( );
+
+    tmp = 0;
+    for( i = 0; i < MAX_GENTITIES; i++ )
+    {
+      if( level.nbMarkers[ i ].Marker == NULL )
+        continue;
+
+      tmp++;
+    }
+    ADMP( va( "^3nobuild:^7 %i nobuild markers have been saved\n", tmp ) );
+    return qtrue;
+  }
+  return qfalse;
 }
 
 /*

@@ -53,6 +53,19 @@ typedef struct gclient_s gclient_t;
 #define FL_NO_HUMANS      0x00004000  // spawn point just for bots
 #define FL_FORCE_GESTURE  0x00008000  // spawn point just for bots
 
+typedef struct
+{
+  qboolean      isNB;
+  float         Area;
+  float         Height;
+} noBuild_t;
+
+typedef struct
+{
+  gentity_t     *Marker;
+  vec3_t        Origin;
+} nbMarkers_t;
+
 // movers are things like doors, plats, buttons, etc
 typedef enum
 {
@@ -247,6 +260,9 @@ struct gentity_s
 
   int               buildPointZone;                 // index for zone
   int               usesBuildPointZone;             // does it use a zone?
+
+  // For nobuild!
+  noBuild_t         noBuild;
 };
 
 typedef enum
@@ -669,6 +685,12 @@ typedef struct
   int               emoticonCount;
 
   buildLog_t        *buildLog;
+
+  qboolean          noBuilding;
+  float             nbArea;
+  float             nbHeight;
+
+  nbMarkers_t      nbMarkers[ MAX_GENTITIES ];
 } level_locals_t;
 
 #define CMD_CHEAT         0x0001
@@ -800,6 +822,9 @@ void              G_BuildLogCleanup( void );
 buildLog_t        *G_BuildLogNew( gentity_t *attacker, buildFate_t fate, qboolean marked );
 void              G_BuildLogSet( buildLog_t *log, gentity_t *buildable );
 const char        *G_RevertBuild( buildLog_t *log );
+
+void              G_NobuildSave( void );
+void              G_NobuildLoad( void );
 
 //
 // g_utils.c
