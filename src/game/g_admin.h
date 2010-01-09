@@ -218,6 +218,7 @@ qboolean G_admin_seen( gentity_t *ent );
 qboolean G_admin_warn( gentity_t *ent );
 qboolean G_admin_invisible( gentity_t *ent );
 qboolean G_admin_nobuild( gentity_t *ent );
+qboolean G_admin_pause( gentity_t *ent );
 
 void G_admin_print( gentity_t *ent, char *m );
 void G_admin_buffer_print( gentity_t *ent, char *m );

@@ -176,6 +176,11 @@ g_admin_cmd_t g_admin_cmds[ ] =
       "[^3name|slot#^7] [^3h|a|s^7] (^3duration^7)"
     },
 
+    {"pause", G_admin_pause, "pause",
+      "Pause (or unpause) the game.",
+      ""
+    },
+
     {"readconfig", G_admin_readconfig, "readconfig",
       "reloads the admin config file and refreshes permission flags",
       ""
@@ -4538,6 +4543,26 @@ qboolean G_admin_nobuild( gentity_t *ent )
     return qtrue;
   }
   return qfalse;
+}
+
+qboolean G_admin_pause( gentity_t *ent )
+{
+  if(!level.paused) 
+  {
+    AP( va( "print \"^3pause: ^7%s^7 paused the game.\n\"", ( ent ) ? ent->client->pers.netname : "console" ) );
+    level.paused = qtrue;
+    trap_SendServerCommand( -1, "cp \"The game has been paused. Please wait.\"" );
+  }
+  else
+  {
+    // Prevent accidental pause->unpause race conditions by two admins doing !pause at once
+    if( level.pausedTime < 1000 ) return qfalse;
+
+    AP( va( "print \"^3pause: ^7%s^7 unpaused the game (Paused for %d msec) \n\"", ( ent ) ? ent->client->pers.netname : "console",level.pausedTime ) );
+    trap_SendServerCommand( -1, "cp \"The game has been unpaused!\"" );
+    level.paused = qfalse;
+  }
+  return qtrue;
 }
 
 /*

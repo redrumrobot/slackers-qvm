@@ -672,6 +672,9 @@ typedef struct
   qboolean          alienTeamLocked;
   qboolean          humanTeamLocked;
 
+  qboolean paused;
+  int pausedTime;
+
   int unlaggedIndex;
   int unlaggedTimes[ MAX_UNLAGGED_MARKERS ];
 
