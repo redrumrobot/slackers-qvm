@@ -2315,6 +2315,20 @@ void G_RunFrame( int levelTime )
   if( level.restarted )
     return;
 
+  if( level.paused ) 
+  {
+    level.pausedTime = levelTime - level.time;
+    if( ( level.pausedTime % 3000 ) == 0 ) 
+      trap_SendServerCommand( -1, "cp \"The game has been paused. Please wait.\"" );
+
+   for( i = 0; i < level.maxclients; i++ )
+   {
+     level.clients[ i ].ps.commandTime = levelTime;
+   }
+
+   return;
+  }
+
   level.framenum++;
   level.previousTime = level.time;
   level.time = levelTime;
@@ -2435,6 +2449,8 @@ void G_RunFrame( int levelTime )
   // cancel vote if timed out
   for( i = 0; i < NUM_TEAMS; i++ )
     G_CheckVote( i );
+
+  level.pausedTime = 0;
 
   level.frameMsec = trap_Milliseconds();
 }

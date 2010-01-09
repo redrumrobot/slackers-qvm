@@ -3095,7 +3095,7 @@ void ClientCommand( int clientNum )
 
   // do tests here to reduce the amount of repeated code
 
-  if( !( command->cmdFlags & CMD_INTERMISSION ) && level.intermissiontime )
+  if( !( command->cmdFlags & CMD_INTERMISSION ) && ( level.intermissiontime || level.paused ) )
     return;
 
   if( command->cmdFlags & CMD_CHEAT && !g_cheats.integer )
